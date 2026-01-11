@@ -48,7 +48,7 @@ This is our first Swift project. We should:
 | **Swift** | Language | Ships with Xcode |
 | **SwiftPM** | Package management | Xcode-integrated, also works from CLI |
 | **Git** | Version control | Standard |
-| **macOS Sequoia+** | Target OS | Minimum deployment target TBD |
+| **macOS 13+ (Ventura)** | Target OS | See §2.5 for version strategy |
 
 ### 2.2 Optional Tools
 
@@ -89,7 +89,30 @@ swift test
 swift test --filter MarkdownRendererTests
 ```
 
-### 2.4 Project Structure Options
+### 2.5 macOS Version Strategy
+
+**Target:** macOS 13 (Ventura) as minimum deployment target.
+
+**Rationale:**
+- TextKit 2 is available and stable
+- SwiftUI 4 has necessary features
+- Covers broad user base (~90% of active Macs)
+
+**Fallback policy:**
+If we encounter hard restrictions that limit important functionality:
+1. **First choice:** Find alternative approach that works on macOS 13
+2. **Second choice:** Fall back to macOS 14 (Sonoma) minimum
+3. **Last resort:** Fall back to macOS 15 (Sequoia) if modern APIs are essential
+
+**Documentation requirement:**
+Any decision to raise the minimum version must be documented with:
+- The feature that requires the newer API
+- Why alternatives were not feasible
+- Impact assessment on user base
+
+---
+
+### 2.6 Project Structure Options
 
 **Option A: Single Xcode Project**
 ```
