@@ -1,0 +1,113 @@
+# QuillSwift .gitignore
+
+# =============================================================================
+# AI/Interactive Working Files
+# =============================================================================
+# These files may contain sensitive context or conversation-specific content
+CLAUDE.md
+CLAUDE-*.md
+Codex-Instructions.md
+Claude-Instructions.md
+
+# Working logs (may contain sensitive debug info)
+logs/
+
+# =============================================================================
+# macOS System Files
+# =============================================================================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Thumbnails
+Icon?
+
+# Spotlight index
+.Spotlight-V100
+
+# =============================================================================
+# Xcode
+# =============================================================================
+# Build generated
+build/
+DerivedData/
+
+# Various settings
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+
+# Other
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# Xcode Playground
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+.swiftpm/
+
+# =============================================================================
+# Swift/Compiler
+# =============================================================================
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# =============================================================================
+# CocoaPods (if we use it)
+# =============================================================================
+# Pods/
+# !Podfile.lock
+
+# =============================================================================
+# IDE
+# =============================================================================
+# VSCode
+.vscode/
+
+# JetBrains
+.idea/
+*.iml
+
+# =============================================================================
+# Testing
+# =============================================================================
+# Test output
+*.xcresult
+
+# Coverage
+*.profdata
+codecov.yml
+
+# =============================================================================
+# Misc
+# =============================================================================
+# Environment files
+.env
+.env.local
+*.local
+
+# Temp files
+*.tmp
+*.temp
+*~
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
