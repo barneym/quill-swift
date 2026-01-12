@@ -116,6 +116,7 @@ Starting at different numbers:
 - [/] In progress
 - [!] Important
 - [-] Blocked
+- [>] Future
 
 ---
 
