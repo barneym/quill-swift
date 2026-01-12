@@ -27,6 +27,12 @@ public struct MarkdownRenderer {
         /// Enabled markdown extensions
         public var extensions: Set<Extension> = [.gfm]
 
+        /// Use dark theme for code highlighting (default: false)
+        public var isDarkTheme: Bool = false
+
+        /// Enable syntax highlighting for code blocks (default: true)
+        public var highlightCodeBlocks: Bool = true
+
         public init() {}
     }
 
@@ -51,10 +57,11 @@ public struct MarkdownRenderer {
         from markdown: String,
         options: Options = Options()
     ) -> String {
-        // Phase 0: Stub implementation
-        // TODO(#1): Implement full HTML rendering
         let document = Document(parsing: markdown)
-        var renderer = HTMLRenderer()
+        var renderer = HTMLRenderer(
+            isDarkTheme: options.isDarkTheme,
+            highlightCode: options.highlightCodeBlocks
+        )
         return renderer.render(document)
     }
 
@@ -88,8 +95,19 @@ public struct MarkdownRenderer {
 struct HTMLRenderer: MarkupWalker {
     var html = ""
 
+    /// Whether to use dark theme for code highlighting
+    let isDarkTheme: Bool
+
+    /// Whether to apply syntax highlighting to code blocks
+    let highlightCode: Bool
+
     // Track current table's column alignments for cell rendering
     private var currentTableAlignments: [Table.ColumnAlignment?] = []
+
+    init(isDarkTheme: Bool = false, highlightCode: Bool = true) {
+        self.isDarkTheme = isDarkTheme
+        self.highlightCode = highlightCode
+    }
 
     mutating func render(_ document: Document) -> String {
         html = ""
@@ -136,12 +154,27 @@ struct HTMLRenderer: MarkupWalker {
 
     mutating func visitCodeBlock(_ codeBlock: CodeBlock) -> () {
         let language = codeBlock.language ?? ""
+        let code = codeBlock.code
+
+        // Build the opening tag
         if language.isEmpty {
             html += "<pre><code>"
         } else {
-            html += "<pre><code class=\"language-\(language)\">"
+            html += "<pre><code class=\"language-\(escapeHTML(language))\">"
         }
-        html += escapeHTML(codeBlock.code)
+
+        // Apply syntax highlighting if enabled
+        if highlightCode {
+            let highlightedCode = CodeBlockHighlighter.shared.highlightToHTML(
+                code,
+                language: language.isEmpty ? nil : language,
+                isDark: isDarkTheme
+            )
+            html += highlightedCode
+        } else {
+            html += escapeHTML(code)
+        }
+
         html += "</code></pre>\n"
     }
 

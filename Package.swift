@@ -24,6 +24,9 @@ let package = Package(
         // Markdown parsing (Apple's swift-markdown)
         .package(url: "https://github.com/swiftlang/swift-markdown.git", from: "0.4.0"),
 
+        // Code syntax highlighting (uses highlight.js under the hood)
+        .package(url: "https://github.com/raspu/Highlightr.git", from: "2.2.1"),
+
         // Snapshot testing (for visual regression)
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.15.0"),
     ],
@@ -34,6 +37,7 @@ let package = Package(
             name: "MarkdownRenderer",
             dependencies: [
                 .product(name: "Markdown", package: "swift-markdown"),
+                .product(name: "Highlightr", package: "Highlightr"),
             ],
             path: "Sources/MarkdownRenderer"
         ),

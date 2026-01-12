@@ -79,12 +79,18 @@ struct ContentView: View {
 
     /// Preview view showing rendered markdown
     private var previewView: some View {
-        let html = MarkdownRenderer.renderHTML(from: document.text)
-        let theme = colorScheme == .dark ? PreviewTheme.dark : PreviewTheme.light
+        let isDark = colorScheme == .dark
+
+        // Configure rendering options with theme-aware code highlighting
+        var options = MarkdownRenderer.Options()
+        options.isDarkTheme = isDark
+
+        let html = MarkdownRenderer.renderHTML(from: document.text, options: options)
+        let theme = isDark ? PreviewTheme.dark : PreviewTheme.light
 
         return PreviewView(
             html: html,
-            baseURL: nil, // TODO: Set to document directory when available
+            baseURL: fileURL?.deletingLastPathComponent(),
             theme: theme
         )
     }
