@@ -23,6 +23,7 @@
 		AA00002E /* FormattingCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001D /* FormattingCommands.swift */; };
 		AA00002F /* SmartLists.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001E /* SmartLists.swift */; };
 		AA000030A /* AutoCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001F /* AutoCompletion.swift */; };
+		AA000031A /* LivePreviewTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000021 /* LivePreviewTextView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +43,7 @@
 		AA00001D /* FormattingCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormattingCommands.swift; sourceTree = "<group>"; };
 		AA00001E /* SmartLists.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartLists.swift; sourceTree = "<group>"; };
 		AA00001F /* AutoCompletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoCompletion.swift; sourceTree = "<group>"; };
+		AA000021 /* LivePreviewTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePreviewTextView.swift; sourceTree = "<group>"; };
 		AA000020 /* QuillSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuillSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -105,6 +107,7 @@
 				AA000017 /* EditorTheme.swift */,
 				AA00001D /* FormattingCommands.swift */,
 				AA00001B /* LineNumberGutter.swift */,
+				AA000021 /* LivePreviewTextView.swift */,
 				AA000018 /* MarkdownHighlighter.swift */,
 				AA000019 /* MarkdownTextView.swift */,
 				AA00001E /* SmartLists.swift */,
@@ -210,6 +213,7 @@
 				AA00002E /* FormattingCommands.swift in Sources */,
 				AA00002F /* SmartLists.swift in Sources */,
 				AA000030A /* AutoCompletion.swift in Sources */,
+				AA000031A /* LivePreviewTextView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
