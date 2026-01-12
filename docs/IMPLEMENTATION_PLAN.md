@@ -289,7 +289,7 @@ Sources/
 
 **Objective:** Unified editing experience that shows formatted preview while editing markdown source.
 
-**Status:** Not started. Core requirement from original Quill project.
+**Status:** NOT IMPLEMENTED. Current LivePreviewTextView.swift is broken scaffolding (cursor positioning fails, editing doesn't work). See `docs/PHASE5_HYBRID_EDITING.md` for correct requirements. Reference: Obsidian's Live Preview mode.
 
 ### Design Philosophy
 
@@ -630,7 +630,7 @@ Sources/
 
 **Objective:** Professional multi-document workflow with session persistence.
 
-**Status:** Not started. Future enhancement for polished UX.
+**Status:** PARTIAL. Session persistence implemented (SessionManager, DraftStorage). Tabbed interface NOT implemented.
 
 ### Tab-Based Document Management
 
