@@ -29,6 +29,7 @@
 		AA000034 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000024 /* SettingsView.swift */; };
 		AA000035 /* HTMLExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000025 /* HTMLExporter.swift */; };
 		AA000036 /* PDFExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000026 /* PDFExporter.swift */; };
+		AA000037 /* URLHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000027 /* URLHandler.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +55,7 @@
 		AA000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		AA000025 /* HTMLExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLExporter.swift; sourceTree = "<group>"; };
 		AA000026 /* PDFExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFExporter.swift; sourceTree = "<group>"; };
+		AA000027 /* URLHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandler.swift; sourceTree = "<group>"; };
 		AA000020 /* QuillSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuillSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -78,6 +80,7 @@
 				AA000012 /* MarkdownDocument.swift */,
 				AA000044 /* Editor */,
 				AA000047 /* Export */,
+				AA000048 /* Integration */,
 				AA000043 /* Preview */,
 				AA000046 /* Settings */,
 				AA000045 /* StatusBar */,
@@ -153,6 +156,14 @@
 				AA000026 /* PDFExporter.swift */,
 			);
 			path = Export;
+			sourceTree = "<group>";
+		};
+		AA000048 /* Integration */ = {
+			isa = PBXGroup;
+			children = (
+				AA000027 /* URLHandler.swift */,
+			);
+			path = Integration;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -250,6 +261,7 @@
 				AA000034 /* SettingsView.swift in Sources */,
 				AA000035 /* HTMLExporter.swift in Sources */,
 				AA000036 /* PDFExporter.swift in Sources */,
+				AA000037 /* URLHandler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

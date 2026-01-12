@@ -10,6 +10,10 @@ struct QuillSwiftApp: App {
     var body: some Scene {
         DocumentGroup(newDocument: MarkdownDocument()) { file in
             ContentView(document: file.$document, fileURL: file.fileURL)
+                .handlesExternalEvents(preferring: ["quillswift"], allowing: ["*"])
+                .onOpenURL { url in
+                    URLHandler.handle(url)
+                }
         }
         .commands {
             // Include standard text editing commands
