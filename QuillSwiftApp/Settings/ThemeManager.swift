@@ -67,6 +67,13 @@ class ThemeManager: ObservableObject {
         }
     }
 
+    /// Enable live preview mode (hybrid WYSIWYG)
+    @Published var livePreviewEnabled: Bool {
+        didSet {
+            savePreferences()
+        }
+    }
+
     // MARK: - Computed Properties
 
     /// Current effective appearance
@@ -134,6 +141,7 @@ class ThemeManager: ObservableObject {
         self.previewLineHeight = 1.6
         self.customCSS = ""
         self.showLineNumbers = false
+        self.livePreviewEnabled = false
 
         loadPreferences()
     }
@@ -156,6 +164,7 @@ class ThemeManager: ObservableObject {
             previewFontSize = prefs.previewFontSize
             previewLineHeight = prefs.previewLineHeight
             showLineNumbers = prefs.showLineNumbers
+            livePreviewEnabled = prefs.livePreviewEnabled ?? false
         } catch {
             print("Failed to load theme preferences: \(error)")
         }
@@ -180,7 +189,8 @@ class ThemeManager: ObservableObject {
             editorFontSize: editorFontSize,
             previewFontSize: previewFontSize,
             previewLineHeight: previewLineHeight,
-            showLineNumbers: showLineNumbers
+            showLineNumbers: showLineNumbers,
+            livePreviewEnabled: livePreviewEnabled
         )
 
         do {
@@ -216,6 +226,7 @@ class ThemeManager: ObservableObject {
             previewFontSize: previewFontSize,
             previewLineHeight: previewLineHeight,
             showLineNumbers: showLineNumbers,
+            livePreviewEnabled: livePreviewEnabled,
             customCSS: customCSS
         )
 
@@ -234,6 +245,7 @@ class ThemeManager: ObservableObject {
         previewFontSize = theme.previewFontSize
         previewLineHeight = theme.previewLineHeight
         showLineNumbers = theme.showLineNumbers
+        livePreviewEnabled = theme.livePreviewEnabled ?? false
         customCSS = theme.customCSS
     }
 
@@ -246,6 +258,7 @@ class ThemeManager: ObservableObject {
         previewLineHeight = 1.6
         customCSS = ""
         showLineNumbers = false
+        livePreviewEnabled = false
     }
 }
 
@@ -266,6 +279,7 @@ private struct ThemePreferences: Codable {
     let previewFontSize: CGFloat
     let previewLineHeight: CGFloat
     let showLineNumbers: Bool
+    let livePreviewEnabled: Bool?  // Optional for backward compatibility
 }
 
 private struct ExportableTheme: Codable {
@@ -275,5 +289,6 @@ private struct ExportableTheme: Codable {
     let previewFontSize: CGFloat
     let previewLineHeight: CGFloat
     let showLineNumbers: Bool
+    let livePreviewEnabled: Bool?  // Optional for backward compatibility
     let customCSS: String
 }

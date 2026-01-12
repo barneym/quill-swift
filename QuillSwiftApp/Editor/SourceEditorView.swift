@@ -4,6 +4,8 @@ import AppKit
 /// A SwiftUI wrapper around MarkdownTextView for source editing.
 ///
 /// Provides a native NSTextView-based editor with markdown syntax highlighting.
+/// Optionally supports live preview mode (Phase 5) which shows formatted preview
+/// while editing, revealing raw syntax when cursor enters a line.
 struct SourceEditorView: NSViewRepresentable {
 
     // MARK: - Properties
@@ -16,6 +18,9 @@ struct SourceEditorView: NSViewRepresentable {
 
     /// Whether to show line numbers
     var showLineNumbers: Bool = false
+
+    /// Whether to enable live preview mode (hybrid WYSIWYG)
+    var livePreviewEnabled: Bool = false
 
     /// Optional callback to receive textView reference for scroll sync
     var onTextViewReady: ((MarkdownTextView) -> Void)?
@@ -35,8 +40,15 @@ struct SourceEditorView: NSViewRepresentable {
         scrollView.drawsBackground = true
         scrollView.backgroundColor = theme.background
 
-        // Create the text view using the convenience initializer that sets up the text system
-        let textView = MarkdownTextView()
+        // Create the text view - use LivePreviewTextView when live preview is enabled
+        let textView: MarkdownTextView
+        if livePreviewEnabled {
+            let livePreview = LivePreviewTextView()
+            livePreview.livePreviewEnabled = true
+            textView = livePreview
+        } else {
+            textView = MarkdownTextView()
+        }
 
         // Configure text view
         textView.delegate = context.coordinator
@@ -120,6 +132,13 @@ struct SourceEditorView: NSViewRepresentable {
             textView.highlighter?.theme = theme
             textView.applyTheme(theme)
             scrollView.backgroundColor = theme.background
+        }
+
+        // Update live preview mode if applicable
+        if let livePreviewTextView = textView as? LivePreviewTextView {
+            if livePreviewTextView.livePreviewEnabled != livePreviewEnabled {
+                livePreviewTextView.livePreviewEnabled = livePreviewEnabled
+            }
         }
     }
 

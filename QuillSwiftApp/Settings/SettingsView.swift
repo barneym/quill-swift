@@ -157,6 +157,16 @@ struct EditorSettingsView: View {
             }
 
             Section {
+                Toggle("Live Preview Mode", isOn: $themeManager.livePreviewEnabled)
+            } header: {
+                Text("Editing Mode")
+            } footer: {
+                Text("Show formatted preview while editing. Syntax is revealed when the cursor enters a line.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section {
                 // Preview of current font settings
                 Text("The quick brown fox jumps over the lazy dog.")
                     .font(.custom(themeManager.editorFontName, size: themeManager.editorFontSize))

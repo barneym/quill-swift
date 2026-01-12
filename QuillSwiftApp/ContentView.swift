@@ -130,6 +130,7 @@ struct ContentView: View {
             text: $document.text,
             theme: customTheme,
             showLineNumbers: themeManager.showLineNumbers,
+            livePreviewEnabled: themeManager.livePreviewEnabled,
             onTextViewReady: { textView in
                 sourceTextView = textView
             },
