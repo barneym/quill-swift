@@ -5,8 +5,12 @@ import AppKit
 ///
 /// This app uses SwiftUI's DocumentGroup for document-based app architecture,
 /// providing automatic file handling, recent files, and window management.
+/// Tab support is enabled via AppDelegate for Safari/Finder-style tabbing.
 @main
 struct QuillSwiftApp: App {
+    /// Connect to AppDelegate for window tabbing support
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var body: some Scene {
         DocumentGroup(newDocument: MarkdownDocument()) { file in
             ContentView(document: file.$document, fileURL: file.fileURL)

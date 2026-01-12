@@ -32,6 +32,7 @@
 		AA000037 /* URLHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000027 /* URLHandler.swift */; };
 		AA000038 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000028 /* SessionManager.swift */; };
 		AA000039 /* DraftStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000029 /* DraftStorage.swift */; };
+		AA00003A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002A /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -60,6 +61,7 @@
 		AA000027 /* URLHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandler.swift; sourceTree = "<group>"; };
 		AA000028 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		AA000029 /* DraftStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftStorage.swift; sourceTree = "<group>"; };
+		AA00002A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AA000020 /* QuillSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuillSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -79,6 +81,7 @@
 		AA000040 /* QuillSwiftApp */ = {
 			isa = PBXGroup;
 			children = (
+				AA00002A /* AppDelegate.swift */,
 				AA000010 /* QuillSwiftApp.swift */,
 				AA000011 /* ContentView.swift */,
 				AA000012 /* MarkdownDocument.swift */,
@@ -278,6 +281,7 @@
 				AA000037 /* URLHandler.swift in Sources */,
 				AA000038 /* SessionManager.swift in Sources */,
 				AA000039 /* DraftStorage.swift in Sources */,
+				AA00003A /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
