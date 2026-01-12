@@ -20,6 +20,9 @@
 		AA00000B /* SourceEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001A /* SourceEditorView.swift */; };
 		AA00000C /* LineNumberGutter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001B /* LineNumberGutter.swift */; };
 		AA00000D /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001C /* StatusBarView.swift */; };
+		AA00002E /* FormattingCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001D /* FormattingCommands.swift */; };
+		AA00002F /* SmartLists.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001E /* SmartLists.swift */; };
+		AA000030A /* AutoCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001F /* AutoCompletion.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +39,9 @@
 		AA00001A /* SourceEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceEditorView.swift; sourceTree = "<group>"; };
 		AA00001B /* LineNumberGutter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineNumberGutter.swift; sourceTree = "<group>"; };
 		AA00001C /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
+		AA00001D /* FormattingCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormattingCommands.swift; sourceTree = "<group>"; };
+		AA00001E /* SmartLists.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartLists.swift; sourceTree = "<group>"; };
+		AA00001F /* AutoCompletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoCompletion.swift; sourceTree = "<group>"; };
 		AA000020 /* QuillSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuillSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -95,10 +101,13 @@
 		AA000044 /* Editor */ = {
 			isa = PBXGroup;
 			children = (
+				AA00001F /* AutoCompletion.swift */,
 				AA000017 /* EditorTheme.swift */,
+				AA00001D /* FormattingCommands.swift */,
 				AA00001B /* LineNumberGutter.swift */,
 				AA000018 /* MarkdownHighlighter.swift */,
 				AA000019 /* MarkdownTextView.swift */,
+				AA00001E /* SmartLists.swift */,
 				AA00001A /* SourceEditorView.swift */,
 			);
 			path = Editor;
@@ -198,6 +207,9 @@
 				AA00000B /* SourceEditorView.swift in Sources */,
 				AA00000C /* LineNumberGutter.swift in Sources */,
 				AA00000D /* StatusBarView.swift in Sources */,
+				AA00002E /* FormattingCommands.swift in Sources */,
+				AA00002F /* SmartLists.swift in Sources */,
+				AA000030A /* AutoCompletion.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

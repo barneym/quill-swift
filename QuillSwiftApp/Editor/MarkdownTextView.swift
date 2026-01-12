@@ -238,6 +238,80 @@ class MarkdownTextView: NSTextView {
         highlightVisibleText()
     }
 
+    // MARK: - Smart Editing
+
+    /// Enable or disable smart list continuation
+    var smartListsEnabled: Bool = true
+
+    /// Enable or disable auto-completion (brackets, quotes)
+    var autoCompletionEnabled: Bool = true
+
+    // MARK: - Key Event Handling
+
+    override func insertNewline(_ sender: Any?) {
+        // Try smart list continuation first
+        if smartListsEnabled && SmartLists.handleEnter(in: self) {
+            return
+        }
+
+        // Default behavior
+        super.insertNewline(sender)
+    }
+
+    override func insertTab(_ sender: Any?) {
+        // Try smart list indentation first
+        if smartListsEnabled && SmartLists.handleTab(in: self, shift: false) {
+            return
+        }
+
+        // Default: insert spaces instead of tab
+        insertText("    ", replacementRange: selectedRange())
+    }
+
+    override func insertBacktab(_ sender: Any?) {
+        // Try smart list outdentation
+        if smartListsEnabled && SmartLists.handleTab(in: self, shift: true) {
+            return
+        }
+
+        // Default behavior
+        super.insertBacktab(sender)
+    }
+
+    override func deleteBackward(_ sender: Any?) {
+        // Try auto-completion pair deletion first
+        if autoCompletionEnabled && AutoCompletion.handleBackspace(in: self) {
+            return
+        }
+
+        // Default behavior
+        super.deleteBackward(sender)
+    }
+
+    override func insertText(_ string: Any, replacementRange: NSRange) {
+        // Handle character insertion for auto-completion
+        if autoCompletionEnabled,
+           let text = string as? String,
+           text.count == 1,
+           let character = text.first {
+
+            // Special handling for backtick (potential code block)
+            if character == "`" {
+                if AutoCompletion.handleTripleBacktick(in: self) {
+                    return
+                }
+            }
+
+            // General auto-completion
+            if AutoCompletion.handleCharacterInsertion(character, in: self) {
+                return
+            }
+        }
+
+        // Default behavior
+        super.insertText(string, replacementRange: replacementRange)
+    }
+
     // MARK: - Cleanup
 
     deinit {

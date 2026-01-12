@@ -57,6 +57,108 @@ struct QuillSwiftApp: App {
                 }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
             }
+
+            // Format menu
+            CommandMenu("Format") {
+                // Text formatting
+                Button("Bold") {
+                    performFormattingCommand(.bold)
+                }
+                .keyboardShortcut("b", modifiers: .command)
+
+                Button("Italic") {
+                    performFormattingCommand(.italic)
+                }
+                .keyboardShortcut("i", modifiers: .command)
+
+                Button("Strikethrough") {
+                    performFormattingCommand(.strikethrough)
+                }
+                .keyboardShortcut("u", modifiers: [.command, .shift])
+
+                Button("Inline Code") {
+                    performFormattingCommand(.inlineCode)
+                }
+                .keyboardShortcut("`", modifiers: .command)
+
+                Divider()
+
+                // Links and images
+                Button("Insert Link") {
+                    performFormattingCommand(.link)
+                }
+                .keyboardShortcut("k", modifiers: .command)
+
+                Button("Insert Image") {
+                    performFormattingCommand(.image)
+                }
+                .keyboardShortcut("k", modifiers: [.command, .shift])
+
+                Divider()
+
+                // Headings
+                Menu("Heading") {
+                    Button("Heading 1") {
+                        performFormattingCommand(.heading(level: 1))
+                    }
+                    .keyboardShortcut("1", modifiers: .command)
+
+                    Button("Heading 2") {
+                        performFormattingCommand(.heading(level: 2))
+                    }
+                    .keyboardShortcut("2", modifiers: .command)
+
+                    Button("Heading 3") {
+                        performFormattingCommand(.heading(level: 3))
+                    }
+                    .keyboardShortcut("3", modifiers: .command)
+
+                    Button("Heading 4") {
+                        performFormattingCommand(.heading(level: 4))
+                    }
+                    .keyboardShortcut("4", modifiers: .command)
+
+                    Button("Heading 5") {
+                        performFormattingCommand(.heading(level: 5))
+                    }
+                    .keyboardShortcut("5", modifiers: .command)
+
+                    Button("Heading 6") {
+                        performFormattingCommand(.heading(level: 6))
+                    }
+                    .keyboardShortcut("6", modifiers: .command)
+
+                    Divider()
+
+                    Button("Remove Heading") {
+                        performFormattingCommand(.removeHeading)
+                    }
+                    .keyboardShortcut("0", modifiers: .command)
+                }
+
+                Divider()
+
+                // Block formatting
+                Button("Blockquote") {
+                    performFormattingCommand(.blockquote)
+                }
+                .keyboardShortcut("'", modifiers: .command)
+
+                Button("Bulleted List") {
+                    performFormattingCommand(.unorderedList)
+                }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+
+                Button("Checkbox") {
+                    performFormattingCommand(.checkbox)
+                }
+                .keyboardShortcut("[", modifiers: .command)
+
+                Button("Code Block") {
+                    performFormattingCommand(.codeBlock)
+                }
+                .keyboardShortcut("`", modifiers: [.command, .shift])
+            }
         }
     }
 
@@ -67,6 +169,15 @@ struct QuillSwiftApp: App {
             return
         }
         responder.performFindPanelAction(action)
+    }
+
+    /// Send a formatting command to the first responder
+    private func performFormattingCommand(_ command: FormattingCommand) {
+        guard let window = NSApp.keyWindow,
+              let responder = window.firstResponder as? NSTextView else {
+            return
+        }
+        responder.applyFormatting(command)
     }
 }
 
