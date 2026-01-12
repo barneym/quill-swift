@@ -1,9 +1,11 @@
 import SwiftUI
 import AppKit
+import MarkdownRenderer
 
 /// A status bar displaying document statistics and file path.
 ///
 /// Shows word count, character count, and a clickable path bar similar to Finder.
+/// When cursor is on a checkbox line, shows the checkbox type name.
 struct StatusBarView: View {
 
     // MARK: - Properties
@@ -13,6 +15,9 @@ struct StatusBarView: View {
 
     /// The file URL of the document (nil for unsaved)
     let fileURL: URL?
+
+    /// Current line text (for checkbox detection)
+    var currentLine: String?
 
     /// Computed word count
     private var wordCount: Int {
@@ -32,6 +37,35 @@ struct StatusBarView: View {
         return text.components(separatedBy: .newlines).count
     }
 
+    /// Detect checkbox type on current line
+    private var currentCheckboxType: CheckboxType? {
+        guard let line = currentLine else { return nil }
+        return parseCheckboxFromLine(line)
+    }
+
+    /// Parse a checkbox from a line of text
+    private func parseCheckboxFromLine(_ line: String) -> CheckboxType? {
+        // Match checkbox pattern: - [X] or * [X] or + [X] or numbered list with checkbox
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+        // Check for task list patterns
+        let patterns = [
+            "^[-*+]\\s+\\[(.)]",     // Unordered: - [x], * [x], + [x]
+            "^\\d+\\.\\s+\\[(.)]",   // Ordered: 1. [x]
+        ]
+
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern),
+               let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
+               let charRange = Range(match.range(at: 1), in: trimmed) {
+                let checkboxChar = String(trimmed[charRange])
+                return CheckboxRegistry.shared.type(forId: checkboxChar)
+            }
+        }
+
+        return nil
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -43,6 +77,19 @@ struct StatusBarView: View {
                 statisticLabel(value: lineCount, singular: "line", plural: "lines")
             }
             .padding(.horizontal, 12)
+
+            // Checkbox type indicator
+            if let checkboxType = currentCheckboxType {
+                Divider()
+                    .frame(height: 12)
+                    .padding(.horizontal, 8)
+
+                HStack(spacing: 4) {
+                    Text(checkboxType.name)
+                        .font(.caption)
+                        .foregroundColor(Color(nsColor: NSColor(hex: checkboxType.cssColor(isDark: false)) ?? .secondaryLabelColor))
+                }
+            }
 
             Spacer()
 
@@ -180,6 +227,37 @@ struct PathComponentButton: View {
     }
 }
 
+// MARK: - NSColor Hex Extension
+
+extension NSColor {
+    /// Create NSColor from hex string
+    convenience init?(hex: String) {
+        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
+
+        var rgb: UInt64 = 0
+        guard Scanner(string: hexSanitized).scanHexInt64(&rgb) else {
+            return nil
+        }
+
+        let length = hexSanitized.count
+        if length == 6 {
+            let r = CGFloat((rgb & 0xFF0000) >> 16) / 255.0
+            let g = CGFloat((rgb & 0x00FF00) >> 8) / 255.0
+            let b = CGFloat(rgb & 0x0000FF) / 255.0
+            self.init(red: r, green: g, blue: b, alpha: 1.0)
+        } else if length == 8 {
+            let r = CGFloat((rgb & 0xFF000000) >> 24) / 255.0
+            let g = CGFloat((rgb & 0x00FF0000) >> 16) / 255.0
+            let b = CGFloat((rgb & 0x0000FF00) >> 8) / 255.0
+            let a = CGFloat(rgb & 0x000000FF) / 255.0
+            self.init(red: r, green: g, blue: b, alpha: a)
+        } else {
+            return nil
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
@@ -190,7 +268,8 @@ struct PathComponentButton: View {
 
         StatusBarView(
             text: "Hello world, this is a test document with some words.",
-            fileURL: URL(fileURLWithPath: "/Users/demo/Documents/Projects/QuillSwift/README.md")
+            fileURL: URL(fileURLWithPath: "/Users/demo/Documents/Projects/QuillSwift/README.md"),
+            currentLine: "- [/] In progress task"
         )
     }
     .frame(width: 600, height: 200)

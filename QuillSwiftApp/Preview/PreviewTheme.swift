@@ -230,6 +230,26 @@ img {
     vertical-align: middle;
 }
 
+/* Custom checkboxes with SF Symbol fallback */
+.task-list-item.custom-checkbox {
+    position: relative;
+}
+
+.task-list-item .checkbox-symbol {
+    display: inline-block;
+    width: 1.2em;
+    text-align: center;
+    margin-right: 0.4em;
+    font-size: 1.1em;
+    vertical-align: middle;
+    cursor: default;
+}
+
+/* Hide standard checkbox for custom types */
+.task-list-item.custom-checkbox input[type="checkbox"] {
+    display: none;
+}
+
 /* Strong and emphasis */
 strong {
     font-weight: 600;

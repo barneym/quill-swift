@@ -34,6 +34,9 @@ struct ContentView: View {
     /// Reference to preview web view for scroll sync
     @State private var previewWebView: WKWebView?
 
+    /// Current line text for status bar (checkbox detection)
+    @State private var currentLine: String?
+
     // MARK: - Body
 
     var body: some View {
@@ -50,7 +53,7 @@ struct ContentView: View {
             }
 
             // Status bar
-            StatusBarView(text: document.text, fileURL: fileURL)
+            StatusBarView(text: document.text, fileURL: fileURL, currentLine: currentLine)
         }
         .frame(minWidth: 600, minHeight: 400)
         .onReceive(NotificationCenter.default.publisher(for: .togglePreview)) { _ in
@@ -89,6 +92,9 @@ struct ContentView: View {
             theme: colorScheme == .dark ? .dark : .light,
             onTextViewReady: { textView in
                 sourceTextView = textView
+            },
+            onCursorLineChange: { line in
+                currentLine = line
             }
         )
     }

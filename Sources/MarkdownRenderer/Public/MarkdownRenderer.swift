@@ -203,16 +203,115 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     mutating func visitListItem(_ item: ListItem) -> () {
+        // Check for built-in checkbox first
         if let checkbox = item.checkbox {
-            let checked = checkbox == .checked ? " checked" : ""
-            html += "<li class=\"task-list-item\"><input type=\"checkbox\" disabled\(checked)>"
+            // Map built-in checkbox to our type system
+            let checkboxType = checkbox == .checked ? CheckboxType.complete : CheckboxType.pending
+            html += renderCheckboxListItem(checkboxType: checkboxType)
             descendInto(item)
+            html += "</li>\n"
+        } else if let customCheckbox = parseExtendedCheckbox(from: item) {
+            // Handle extended checkbox syntax [/], [-], [?], [!], etc.
+            html += renderCheckboxListItem(checkboxType: customCheckbox.type)
+            // Render content without the checkbox marker
+            renderListItemContentWithoutCheckbox(item, markerLength: customCheckbox.markerLength)
             html += "</li>\n"
         } else {
             html += "<li>"
             descendInto(item)
             html += "</li>\n"
         }
+    }
+
+    /// Parse extended checkbox syntax from list item content
+    private func parseExtendedCheckbox(from item: ListItem) -> (type: CheckboxType, markerLength: Int)? {
+        // Get the plain text of the first inline element
+        guard let firstChild = item.children.first(where: { $0 is Paragraph }) as? Paragraph,
+              let text = firstChild.children.first(where: { $0 is Text }) as? Text else {
+            return nil
+        }
+
+        let content = text.string
+
+        // Check for extended checkbox pattern: [X] where X is not 'x' or ' '
+        // Pattern: starts with [, single character, ] followed by space
+        guard content.count >= 4,
+              content.hasPrefix("["),
+              content[content.index(content.startIndex, offsetBy: 2)] == "]",
+              content[content.index(content.startIndex, offsetBy: 3)] == " " else {
+            return nil
+        }
+
+        let checkboxChar = String(content[content.index(content.startIndex, offsetBy: 1)])
+
+        // Skip standard checkboxes (handled by swift-markdown)
+        if checkboxChar == "x" || checkboxChar == "X" || checkboxChar == " " {
+            return nil
+        }
+
+        // Look up the checkbox type
+        guard let checkboxType = CheckboxRegistry.shared.type(forId: checkboxChar) else {
+            return nil
+        }
+
+        return (type: checkboxType, markerLength: 4) // "[X] " = 4 characters
+    }
+
+    /// Render a checkbox list item opener with SF Symbol
+    private func renderCheckboxListItem(checkboxType: CheckboxType) -> String {
+        let color = checkboxType.cssColor(isDark: isDarkTheme)
+        let symbol = checkboxType.symbol
+        let name = escapeHTML(checkboxType.name)
+
+        // Use SF Symbol image tag with fallback unicode
+        let symbolDisplay = sfSymbolToUnicode(symbol)
+
+        return """
+        <li class="task-list-item custom-checkbox" data-checkbox-id="\(escapeHTML(checkboxType.id))" title="\(name)"><span class="checkbox-symbol" style="color: \(color);">\(symbolDisplay)</span>
+        """
+    }
+
+    /// Render list item content, skipping the checkbox marker
+    private mutating func renderListItemContentWithoutCheckbox(_ item: ListItem, markerLength: Int) {
+        // We need to render children but skip the first N characters of the first text node
+        for child in item.children {
+            if let paragraph = child as? Paragraph {
+                var isFirst = true
+                for inline in paragraph.children {
+                    if isFirst, let text = inline as? Text {
+                        // Skip the checkbox marker
+                        let content = text.string
+                        if content.count > markerLength {
+                            let remaining = String(content.dropFirst(markerLength))
+                            html += escapeHTML(remaining)
+                        }
+                        isFirst = false
+                    } else {
+                        visit(inline)
+                        isFirst = false
+                    }
+                }
+            } else {
+                visit(child)
+            }
+        }
+    }
+
+    /// Convert SF Symbol name to unicode fallback
+    private func sfSymbolToUnicode(_ symbol: String) -> String {
+        // Map common SF Symbols to unicode equivalents for HTML rendering
+        let symbolMap: [String: String] = [
+            "checkmark.square.fill": "&#x2611;",     // ☑
+            "square": "&#x2610;",                     // ☐
+            "circle.lefthalf.filled": "&#x25D0;",   // ◐
+            "minus.square": "&#x229F;",              // ⊟
+            "questionmark.circle": "&#x2753;",      // ❓
+            "exclamationmark.triangle": "&#x26A0;", // ⚠
+            "xmark.circle": "&#x2717;",             // ✗
+            "circle.fill": "&#x25CF;",              // ●
+        ]
+
+        return symbolMap[symbol] ?? "&#x25A1;" // Default: white square
     }
 
     mutating func visitBlockQuote(_ blockQuote: BlockQuote) -> () {

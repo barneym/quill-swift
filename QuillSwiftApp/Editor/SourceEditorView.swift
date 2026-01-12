@@ -20,6 +20,9 @@ struct SourceEditorView: NSViewRepresentable {
     /// Optional callback to receive textView reference for scroll sync
     var onTextViewReady: ((MarkdownTextView) -> Void)?
 
+    /// Optional callback when cursor line changes (for status bar)
+    var onCursorLineChange: ((String) -> Void)?
+
     // MARK: - NSViewRepresentable
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -121,7 +124,7 @@ struct SourceEditorView: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text)
+        Coordinator(text: $text, onCursorLineChange: onCursorLineChange)
     }
 
     // MARK: - Coordinator
@@ -131,9 +134,11 @@ struct SourceEditorView: NSViewRepresentable {
         weak var textView: MarkdownTextView?
         weak var scrollView: NSScrollView?
         weak var lineNumberGutter: LineNumberGutter?
+        var onCursorLineChange: ((String) -> Void)?
 
-        init(text: Binding<String>) {
+        init(text: Binding<String>, onCursorLineChange: ((String) -> Void)? = nil) {
             _text = text
+            self.onCursorLineChange = onCursorLineChange
         }
 
         func textDidChange(_ newText: String) {
@@ -155,7 +160,22 @@ struct SourceEditorView: NSViewRepresentable {
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
-            // Could be used for cursor position tracking
+            // Update current line for status bar
+            guard let textView = notification.object as? NSTextView,
+                  let onCursorLineChange = onCursorLineChange else {
+                return
+            }
+
+            let string = textView.string as NSString
+            let selectedRange = textView.selectedRange()
+
+            // Get line range for cursor position
+            let lineRange = string.lineRange(for: NSRange(location: selectedRange.location, length: 0))
+            let currentLine = string.substring(with: lineRange)
+
+            DispatchQueue.main.async {
+                onCursorLineChange(currentLine)
+            }
         }
 
         func undoManager(for view: NSTextView) -> UndoManager? {
