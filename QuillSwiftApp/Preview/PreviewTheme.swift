@@ -39,7 +39,34 @@ struct PreviewTheme {
 
     /// Wraps HTML content in a complete HTML document with styling
     func wrapHTML(_ bodyContent: String) -> String {
+        wrapHTML(bodyContent, fontSize: nil, lineHeight: nil, customCSS: nil)
+    }
+
+    /// Wraps HTML content with custom theme settings from ThemeManager
+    func wrapHTML(
+        _ bodyContent: String,
+        fontSize: CGFloat?,
+        lineHeight: CGFloat?,
+        customCSS: String?
+    ) -> String {
+        // Build custom variable overrides if settings provided
+        var variableOverrides = ""
+        if let fontSize = fontSize {
+            variableOverrides += "--qs-font-size: \(Int(fontSize))px;\n"
+        }
+        if let lineHeight = lineHeight {
+            variableOverrides += "--qs-line-height: \(lineHeight);\n"
+        }
+
+        let overrideCSS = variableOverrides.isEmpty ? "" : """
+        :root {
+            \(variableOverrides)
+        }
         """
+
+        let userCSS = customCSS ?? ""
+
+        return """
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -48,6 +75,8 @@ struct PreviewTheme {
             <style>
             \(baseCSS)
             \(css)
+            \(overrideCSS)
+            \(userCSS)
             </style>
         </head>
         <body>

@@ -6,6 +6,7 @@ import WebKit
 /// The preview is read-only and supports:
 /// - Rendered HTML content
 /// - Light/dark theme following system appearance
+/// - User-customizable font size, line height, and CSS
 /// - Clickable links that open in the default browser
 /// - Scroll sync with source editor
 struct PreviewView: NSViewRepresentable {
@@ -20,6 +21,15 @@ struct PreviewView: NSViewRepresentable {
 
     /// The CSS theme to apply
     let theme: PreviewTheme
+
+    /// User font size override (from ThemeManager)
+    var fontSize: CGFloat?
+
+    /// User line height override (from ThemeManager)
+    var lineHeight: CGFloat?
+
+    /// User custom CSS (from ThemeManager)
+    var customCSS: String?
 
     /// Optional callback to receive webView reference for scroll sync
     var onWebViewReady: ((WKWebView) -> Void)?
@@ -63,7 +73,12 @@ struct PreviewView: NSViewRepresentable {
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
-        let fullHTML = theme.wrapHTML(html)
+        let fullHTML = theme.wrapHTML(
+            html,
+            fontSize: fontSize,
+            lineHeight: lineHeight,
+            customCSS: customCSS
+        )
         webView.loadHTMLString(fullHTML, baseURL: baseURL)
     }
 

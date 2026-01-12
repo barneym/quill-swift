@@ -122,15 +122,42 @@ struct EditorTheme {
         font: NSFont.monospacedSystemFont(ofSize: 14, weight: .regular),
         codeFont: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
     )
+
+    // MARK: - Custom Font Support
+
+    /// Creates a theme with custom font settings from ThemeManager
+    func withFont(name: String, size: CGFloat) -> EditorTheme {
+        let customFont = NSFont(name: name, size: size)
+            ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        let customCodeFont = NSFont(name: name, size: size - 1)
+            ?? NSFont.monospacedSystemFont(ofSize: size - 1, weight: .regular)
+
+        return EditorTheme(
+            background: background,
+            text: text,
+            heading: heading,
+            bold: bold,
+            italic: italic,
+            code: code,
+            codeBackground: codeBackground,
+            link: link,
+            listMarker: listMarker,
+            blockquote: blockquote,
+            horizontalRule: horizontalRule,
+            font: customFont,
+            codeFont: customCodeFont
+        )
+    }
 }
 
 // MARK: - Equatable
 
 extension EditorTheme: Equatable {
     static func == (lhs: EditorTheme, rhs: EditorTheme) -> Bool {
-        // Compare key colors to detect theme changes
+        // Compare key colors and fonts to detect theme changes
         lhs.background == rhs.background &&
         lhs.text == rhs.text &&
-        lhs.heading == rhs.heading
+        lhs.heading == rhs.heading &&
+        lhs.font == rhs.font
     }
 }

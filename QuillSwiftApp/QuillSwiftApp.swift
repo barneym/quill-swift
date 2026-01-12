@@ -160,6 +160,13 @@ struct QuillSwiftApp: App {
                 .keyboardShortcut("`", modifiers: [.command, .shift])
             }
         }
+
+        // Settings window (Cmd+,)
+        #if os(macOS)
+        Settings {
+            SettingsView()
+        }
+        #endif
     }
 
     /// Send a find panel action to the first responder

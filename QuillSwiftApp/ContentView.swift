@@ -7,6 +7,7 @@ import MarkdownRenderer
 /// Displays either the source editor or preview, toggled via Cmd+E.
 /// Phase 2: NSTextView source editor with syntax highlighting + WKWebView preview.
 /// Phase 7: Scroll sync between source and preview on mode toggle.
+/// Phase 8: ThemeManager integration for user customization.
 struct ContentView: View {
 
     // MARK: - Properties
@@ -22,6 +23,9 @@ struct ContentView: View {
 
     /// System appearance for theme selection
     @Environment(\.colorScheme) private var colorScheme
+
+    /// Theme manager for user customization
+    @ObservedObject private var themeManager = ThemeManager.shared
 
     // MARK: - Scroll Sync
 
@@ -86,10 +90,18 @@ struct ContentView: View {
 
     /// Source text editor with markdown syntax highlighting
     /// Phase 2: Custom NSTextView with syntax highlighting
+    /// Phase 8: ThemeManager font customization
     private var sourceEditor: some View {
-        SourceEditorView(
+        let baseTheme: EditorTheme = colorScheme == .dark ? .dark : .light
+        let customTheme = baseTheme.withFont(
+            name: themeManager.editorFontName,
+            size: themeManager.editorFontSize
+        )
+
+        return SourceEditorView(
             text: $document.text,
-            theme: colorScheme == .dark ? .dark : .light,
+            theme: customTheme,
+            showLineNumbers: themeManager.showLineNumbers,
             onTextViewReady: { textView in
                 sourceTextView = textView
             },
@@ -114,6 +126,9 @@ struct ContentView: View {
             html: html,
             baseURL: fileURL?.deletingLastPathComponent(),
             theme: theme,
+            fontSize: themeManager.previewFontSize,
+            lineHeight: themeManager.previewLineHeight,
+            customCSS: themeManager.customCSS.isEmpty ? nil : themeManager.customCSS,
             onWebViewReady: { webView in
                 previewWebView = webView
             }
