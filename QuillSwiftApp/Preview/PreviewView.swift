@@ -7,7 +7,7 @@ import WebKit
 /// - Rendered HTML content
 /// - Light/dark theme following system appearance
 /// - Clickable links that open in the default browser
-/// - Security: JavaScript disabled by default
+/// - Scroll sync with source editor
 struct PreviewView: NSViewRepresentable {
 
     // MARK: - Properties
@@ -21,13 +21,17 @@ struct PreviewView: NSViewRepresentable {
     /// The CSS theme to apply
     let theme: PreviewTheme
 
+    /// Optional callback to receive webView reference for scroll sync
+    var onWebViewReady: ((WKWebView) -> Void)?
+
     // MARK: - NSViewRepresentable
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
 
-        // Security: Disable JavaScript by default
-        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
+        // Enable JavaScript for internal scroll sync commands
+        // Navigation security is handled by the navigation delegate
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = true
 
         // Prevent arbitrary network requests
         configuration.websiteDataStore = .nonPersistent()
@@ -47,6 +51,14 @@ struct PreviewView: NSViewRepresentable {
         }
         #endif
 
+        // Store reference in coordinator for scroll sync
+        context.coordinator.webView = webView
+
+        // Notify parent of webView for scroll sync
+        DispatchQueue.main.async {
+            onWebViewReady?(webView)
+        }
+
         return webView
     }
 
@@ -63,6 +75,9 @@ struct PreviewView: NSViewRepresentable {
 
     /// Handles navigation events and link clicks
     class Coordinator: NSObject, WKNavigationDelegate {
+
+        /// Reference to the webView for scroll sync
+        weak var webView: WKWebView?
 
         /// Handle link clicks - open external links in default browser
         func webView(

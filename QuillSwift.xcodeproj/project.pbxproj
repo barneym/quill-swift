@@ -24,6 +24,7 @@
 		AA00002F /* SmartLists.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001E /* SmartLists.swift */; };
 		AA000030A /* AutoCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001F /* AutoCompletion.swift */; };
 		AA000031A /* LivePreviewTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000021 /* LivePreviewTextView.swift */; };
+		AA000032B /* ScrollSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000022 /* ScrollSync.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +45,7 @@
 		AA00001E /* SmartLists.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartLists.swift; sourceTree = "<group>"; };
 		AA00001F /* AutoCompletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoCompletion.swift; sourceTree = "<group>"; };
 		AA000021 /* LivePreviewTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePreviewTextView.swift; sourceTree = "<group>"; };
+		AA000022 /* ScrollSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollSync.swift; sourceTree = "<group>"; };
 		AA000020 /* QuillSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuillSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -96,6 +98,7 @@
 			children = (
 				AA000015 /* PreviewView.swift */,
 				AA000016 /* PreviewTheme.swift */,
+				AA000022 /* ScrollSync.swift */,
 			);
 			path = Preview;
 			sourceTree = "<group>";
@@ -214,6 +217,7 @@
 				AA00002F /* SmartLists.swift in Sources */,
 				AA000030A /* AutoCompletion.swift in Sources */,
 				AA000031A /* LivePreviewTextView.swift in Sources */,
+				AA000032B /* ScrollSync.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

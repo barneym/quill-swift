@@ -17,6 +17,9 @@ struct SourceEditorView: NSViewRepresentable {
     /// Whether to show line numbers
     var showLineNumbers: Bool = false
 
+    /// Optional callback to receive textView reference for scroll sync
+    var onTextViewReady: ((MarkdownTextView) -> Void)?
+
     // MARK: - NSViewRepresentable
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -80,6 +83,11 @@ struct SourceEditorView: NSViewRepresentable {
         // Store reference in coordinator
         context.coordinator.textView = textView
         context.coordinator.scrollView = scrollView
+
+        // Notify parent of textView for scroll sync
+        DispatchQueue.main.async {
+            onTextViewReady?(textView)
+        }
 
         // Add line numbers if enabled
         if showLineNumbers {

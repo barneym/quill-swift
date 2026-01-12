@@ -1,10 +1,12 @@
 import SwiftUI
+import WebKit
 import MarkdownRenderer
 
 /// The main content view for a document window.
 ///
 /// Displays either the source editor or preview, toggled via Cmd+E.
 /// Phase 2: NSTextView source editor with syntax highlighting + WKWebView preview.
+/// Phase 7: Scroll sync between source and preview on mode toggle.
 struct ContentView: View {
 
     // MARK: - Properties
@@ -20,6 +22,17 @@ struct ContentView: View {
 
     /// System appearance for theme selection
     @Environment(\.colorScheme) private var colorScheme
+
+    // MARK: - Scroll Sync
+
+    /// Scroll synchronization manager
+    @State private var scrollSync = ScrollSync()
+
+    /// Reference to source text view for scroll sync
+    @State private var sourceTextView: MarkdownTextView?
+
+    /// Reference to preview web view for scroll sync
+    @State private var previewWebView: WKWebView?
 
     // MARK: - Body
 
@@ -73,7 +86,10 @@ struct ContentView: View {
     private var sourceEditor: some View {
         SourceEditorView(
             text: $document.text,
-            theme: colorScheme == .dark ? .dark : .light
+            theme: colorScheme == .dark ? .dark : .light,
+            onTextViewReady: { textView in
+                sourceTextView = textView
+            }
         )
     }
 
@@ -91,7 +107,10 @@ struct ContentView: View {
         return PreviewView(
             html: html,
             baseURL: fileURL?.deletingLastPathComponent(),
-            theme: theme
+            theme: theme,
+            onWebViewReady: { webView in
+                previewWebView = webView
+            }
         )
     }
 
@@ -99,8 +118,52 @@ struct ContentView: View {
 
     /// Toggle between source and preview modes
     private func toggleViewMode() {
+        let previousMode = viewMode
+
+        // Capture position before switching
+        capturePosition(from: previousMode)
+
         withAnimation(.easeInOut(duration: 0.2)) {
             viewMode = viewMode == .source ? .preview : .source
+        }
+
+        // Restore position after switching (with delay for view to appear)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            restorePosition(to: viewMode)
+        }
+    }
+
+    /// Capture scroll position from current mode
+    private func capturePosition(from mode: ViewMode) {
+        switch mode {
+        case .source:
+            // Capture source position before switching to preview
+            if let textView = sourceTextView {
+                _ = scrollSync.captureSourcePosition(from: textView)
+            }
+        case .preview:
+            // Capture preview position before switching to source
+            if let webView = previewWebView {
+                scrollSync.capturePreviewPosition(from: webView) { _ in }
+            }
+        }
+    }
+
+    /// Restore scroll position after switching to new mode
+    private func restorePosition(to mode: ViewMode) {
+        switch mode {
+        case .preview:
+            // Scroll preview to match source position
+            if let webView = previewWebView,
+               let sourcePosition = scrollSync.lastSourcePosition {
+                scrollSync.scrollPreviewToLine(sourcePosition.line, in: webView)
+            }
+        case .source:
+            // Scroll source to match preview position
+            if let textView = sourceTextView,
+               let previewPosition = scrollSync.lastPreviewPosition {
+                scrollSync.scrollSourceToLine(previewPosition.sourceLine, in: textView)
+            }
         }
     }
 }
