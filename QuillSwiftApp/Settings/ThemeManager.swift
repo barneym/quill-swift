@@ -74,6 +74,20 @@ class ThemeManager: ObservableObject {
         }
     }
 
+    /// Enable Mermaid diagram rendering (requires trusted mode)
+    @Published var enableMermaid: Bool {
+        didSet {
+            savePreferences()
+        }
+    }
+
+    /// Enable Math/LaTeX rendering with KaTeX (requires trusted mode)
+    @Published var enableMath: Bool {
+        didSet {
+            savePreferences()
+        }
+    }
+
     // MARK: - Computed Properties
 
     /// Current effective appearance
@@ -142,6 +156,8 @@ class ThemeManager: ObservableObject {
         self.customCSS = ""
         self.showLineNumbers = false
         self.livePreviewEnabled = false
+        self.enableMermaid = false  // Disabled by default for security
+        self.enableMath = false     // Disabled by default for security
 
         loadPreferences()
     }
@@ -165,6 +181,8 @@ class ThemeManager: ObservableObject {
             previewLineHeight = prefs.previewLineHeight
             showLineNumbers = prefs.showLineNumbers
             livePreviewEnabled = prefs.livePreviewEnabled ?? false
+            enableMermaid = prefs.enableMermaid ?? false
+            enableMath = prefs.enableMath ?? false
         } catch {
             print("Failed to load theme preferences: \(error)")
         }
@@ -190,7 +208,9 @@ class ThemeManager: ObservableObject {
             previewFontSize: previewFontSize,
             previewLineHeight: previewLineHeight,
             showLineNumbers: showLineNumbers,
-            livePreviewEnabled: livePreviewEnabled
+            livePreviewEnabled: livePreviewEnabled,
+            enableMermaid: enableMermaid,
+            enableMath: enableMath
         )
 
         do {
@@ -227,6 +247,8 @@ class ThemeManager: ObservableObject {
             previewLineHeight: previewLineHeight,
             showLineNumbers: showLineNumbers,
             livePreviewEnabled: livePreviewEnabled,
+            enableMermaid: enableMermaid,
+            enableMath: enableMath,
             customCSS: customCSS
         )
 
@@ -246,6 +268,8 @@ class ThemeManager: ObservableObject {
         previewLineHeight = theme.previewLineHeight
         showLineNumbers = theme.showLineNumbers
         livePreviewEnabled = theme.livePreviewEnabled ?? false
+        enableMermaid = theme.enableMermaid ?? false
+        enableMath = theme.enableMath ?? false
         customCSS = theme.customCSS
     }
 
@@ -259,6 +283,8 @@ class ThemeManager: ObservableObject {
         customCSS = ""
         showLineNumbers = false
         livePreviewEnabled = false
+        enableMermaid = false
+        enableMath = false
     }
 }
 
@@ -280,6 +306,8 @@ private struct ThemePreferences: Codable {
     let previewLineHeight: CGFloat
     let showLineNumbers: Bool
     let livePreviewEnabled: Bool?  // Optional for backward compatibility
+    let enableMermaid: Bool?       // Optional for backward compatibility
+    let enableMath: Bool?          // Optional for backward compatibility
 }
 
 private struct ExportableTheme: Codable {
@@ -290,5 +318,7 @@ private struct ExportableTheme: Codable {
     let previewLineHeight: CGFloat
     let showLineNumbers: Bool
     let livePreviewEnabled: Bool?  // Optional for backward compatibility
+    let enableMermaid: Bool?       // Optional for backward compatibility
+    let enableMath: Bool?          // Optional for backward compatibility
     let customCSS: String
 }

@@ -184,7 +184,9 @@ struct ContentView: View {
             },
             onCheckboxToggle: { index, isChecked in
                 toggleCheckboxInSource(at: index, checked: isChecked)
-            }
+            },
+            enableMermaid: themeManager.enableMermaid,
+            enableMath: themeManager.enableMath
         )
     }
 

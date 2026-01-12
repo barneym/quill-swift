@@ -47,7 +47,9 @@ struct PreviewTheme {
         _ bodyContent: String,
         fontSize: CGFloat?,
         lineHeight: CGFloat?,
-        customCSS: String?
+        customCSS: String?,
+        enableMermaid: Bool = false,
+        enableMath: Bool = false
     ) -> String {
         // Build custom variable overrides if settings provided
         var variableOverrides = ""
@@ -66,12 +68,20 @@ struct PreviewTheme {
 
         let userCSS = customCSS ?? ""
 
+        // Include Mermaid script if enabled
+        let mermaidScript = enableMermaid ? mermaidScriptContent : ""
+
+        // Include KaTeX scripts if enabled
+        let mathScript = enableMath ? katexScriptContent : ""
+        let mathCSS = enableMath ? katexCSSContent : ""
+
         return """
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            \(mathCSS)
             <style>
             \(baseCSS)
             \(css)
@@ -84,6 +94,8 @@ struct PreviewTheme {
             \(bodyContent)
             </article>
             \(checkboxScript)
+            \(mermaidScript)
+            \(mathScript)
         </body>
         </html>
         """
@@ -426,4 +438,104 @@ private let darkCSS = """
     /* Images */
     --qs-image-border-radius: 4px;
 }
+"""
+
+// MARK: - Mermaid Diagram Script
+
+private let mermaidScriptContent = """
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+(function() {
+    // Initialize Mermaid with security settings
+    mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: document.documentElement.style.getPropertyValue('--qs-color-background') === '#0d1117' ? 'dark' : 'default',
+        maxTextSize: 50000,  // 50KB limit
+        flowchart: { useMaxWidth: true },
+        sequence: { useMaxWidth: true }
+    });
+
+    // Find all mermaid code blocks and render them
+    const codeBlocks = document.querySelectorAll('pre > code.language-mermaid');
+    codeBlocks.forEach((codeBlock, index) => {
+        const pre = codeBlock.parentElement;
+        const content = codeBlock.textContent;
+
+        // Check size limit (50KB)
+        if (content.length > 50000) {
+            pre.innerHTML = '<p style="color: red;">Mermaid diagram too large (max 50KB)</p>';
+            return;
+        }
+
+        // Create container for rendered diagram
+        const container = document.createElement('div');
+        container.className = 'mermaid-diagram';
+        container.id = 'mermaid-' + index;
+
+        // Replace code block with container
+        pre.parentNode.replaceChild(container, pre);
+
+        // Render with timeout
+        const timeoutId = setTimeout(() => {
+            container.innerHTML = '<p style="color: orange;">Mermaid diagram rendering timeout</p>';
+        }, 5000);
+
+        try {
+            mermaid.render('mermaid-svg-' + index, content).then(result => {
+                clearTimeout(timeoutId);
+                container.innerHTML = result.svg;
+            }).catch(err => {
+                clearTimeout(timeoutId);
+                container.innerHTML = '<pre style="color: red;">Mermaid error: ' + err.message + '</pre>';
+            });
+        } catch (err) {
+            clearTimeout(timeoutId);
+            container.innerHTML = '<pre style="color: red;">Mermaid error: ' + err.message + '</pre>';
+        }
+    });
+})();
+</script>
+<style>
+.mermaid-diagram {
+    display: flex;
+    justify-content: center;
+    margin: 1em 0;
+    overflow-x: auto;
+}
+.mermaid-diagram svg {
+    max-width: 100%;
+    height: auto;
+}
+</style>
+"""
+
+// MARK: - KaTeX Math Script
+
+private let katexCSSContent = """
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+"""
+
+private let katexScriptContent = """
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script>
+(function() {
+    // Render math expressions
+    renderMathInElement(document.body, {
+        delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\\\[', right: '\\\\]', display: true},
+            {left: '\\\\(', right: '\\\\)', display: false}
+        ],
+        throwOnError: false,
+        errorColor: '#cc0000',
+        strict: false,
+        trust: false,
+        maxSize: 10,
+        maxExpand: 100
+    });
+})();
+</script>
 """

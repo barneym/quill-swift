@@ -38,6 +38,12 @@ struct PreviewView: NSViewRepresentable {
     /// Callback when a checkbox is toggled (checkbox index, new checked state)
     var onCheckboxToggle: ((Int, Bool) -> Void)?
 
+    /// Enable Mermaid diagram rendering
+    var enableMermaid: Bool = false
+
+    /// Enable Math/LaTeX rendering
+    var enableMath: Bool = false
+
     // MARK: - NSViewRepresentable
 
     func makeNSView(context: Context) -> WKWebView {
@@ -88,7 +94,9 @@ struct PreviewView: NSViewRepresentable {
             html,
             fontSize: fontSize,
             lineHeight: lineHeight,
-            customCSS: customCSS
+            customCSS: customCSS,
+            enableMermaid: enableMermaid,
+            enableMath: enableMath
         )
 
         // Only reload if content has actually changed
