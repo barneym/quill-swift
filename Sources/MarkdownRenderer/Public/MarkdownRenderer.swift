@@ -88,8 +88,12 @@ public struct MarkdownRenderer {
 struct HTMLRenderer: MarkupWalker {
     var html = ""
 
+    // Track current table's column alignments for cell rendering
+    private var currentTableAlignments: [Table.ColumnAlignment?] = []
+
     mutating func render(_ document: Document) -> String {
         html = ""
+        currentTableAlignments = []
         visit(document)
         return html
     }
@@ -166,9 +170,16 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     mutating func visitListItem(_ item: ListItem) -> () {
-        html += "<li>"
-        descendInto(item)
-        html += "</li>\n"
+        if let checkbox = item.checkbox {
+            let checked = checkbox == .checked ? " checked" : ""
+            html += "<li class=\"task-list-item\"><input type=\"checkbox\" disabled\(checked)>"
+            descendInto(item)
+            html += "</li>\n"
+        } else {
+            html += "<li>"
+            descendInto(item)
+            html += "</li>\n"
+        }
     }
 
     mutating func visitBlockQuote(_ blockQuote: BlockQuote) -> () {
@@ -187,6 +198,85 @@ struct HTMLRenderer: MarkupWalker {
 
     mutating func visitLineBreak(_ lineBreak: LineBreak) -> () {
         html += "<br>\n"
+    }
+
+    // MARK: - GFM: Tables
+
+    mutating func visitTable(_ table: Table) -> () {
+        // Store column alignments for use in visitTableCell
+        currentTableAlignments = table.columnAlignments
+        html += "<table>\n"
+        descendInto(table)
+        html += "</table>\n"
+        currentTableAlignments = []
+    }
+
+    mutating func visitTableHead(_ tableHead: Table.Head) -> () {
+        html += "<thead>\n<tr>\n"
+        descendInto(tableHead)
+        html += "</tr>\n</thead>\n"
+    }
+
+    mutating func visitTableBody(_ tableBody: Table.Body) -> () {
+        html += "<tbody>\n"
+        descendInto(tableBody)
+        html += "</tbody>\n"
+    }
+
+    mutating func visitTableRow(_ tableRow: Table.Row) -> () {
+        html += "<tr>\n"
+        descendInto(tableRow)
+        html += "</tr>\n"
+    }
+
+    mutating func visitTableCell(_ tableCell: Table.Cell) -> () {
+        let tag: String
+        // Check if this cell is in the table head
+        if tableCell.parent is Table.Head {
+            tag = "th"
+        } else {
+            tag = "td"
+        }
+
+        // Get alignment from the stored column alignments
+        var alignAttr = ""
+        let columnIndex = tableCell.indexInParent
+        if columnIndex < currentTableAlignments.count {
+            switch currentTableAlignments[columnIndex] {
+            case .left:
+                alignAttr = " align=\"left\""
+            case .center:
+                alignAttr = " align=\"center\""
+            case .right:
+                alignAttr = " align=\"right\""
+            case nil:
+                break
+            }
+        }
+
+        html += "<\(tag)\(alignAttr)>"
+        descendInto(tableCell)
+        html += "</\(tag)>\n"
+    }
+
+    // MARK: - GFM: Strikethrough
+
+    mutating func visitStrikethrough(_ strikethrough: Strikethrough) -> () {
+        html += "<del>"
+        descendInto(strikethrough)
+        html += "</del>"
+    }
+
+    // MARK: - Inline HTML
+
+    mutating func visitInlineHTML(_ inlineHTML: InlineHTML) -> () {
+        // Security: Strip raw HTML by default
+        // TODO: Add sanitizer option to allow safe HTML elements
+    }
+
+    mutating func visitHTMLBlock(_ htmlBlock: HTMLBlock) -> () {
+        // Security: Strip raw HTML blocks by default
+        // TODO: Add sanitizer option to allow safe HTML blocks
     }
 
     // MARK: - Helpers

@@ -21,16 +21,26 @@ QuillSwift is a native macOS markdown editor built in Swift. This document outli
 git clone https://github.com/barneym/quill-swift.git
 cd quill-swift
 
-# Open in Xcode
-open Package.swift
-# Or: xed .
+# Open the app project in Xcode
+open QuillSwift.xcodeproj
 
-# Build from command line
+# Build the app from command line
+xcodebuild -scheme QuillSwift -configuration Debug build
+
+# Build libraries only (via Swift Package Manager)
 swift build
 
-# Run tests
+# Run library tests
 swift test
 ```
+
+### Project Structure
+
+QuillSwift uses a **hybrid approach**:
+- **Xcode project** (`QuillSwift.xcodeproj`) for the macOS app
+- **Swift Package Manager** (`Package.swift`) for standalone libraries
+
+See `docs/ARCHITECTURE.md` for detailed project structure.
 
 ---
 
@@ -252,11 +262,14 @@ Adding a new dependency requires:
 ### Running Tests
 
 ```bash
-# All tests
+# Library tests (via SPM)
 swift test
 
-# Specific test class
-swift test --filter MarkdownParserTests
+# App tests (via Xcode)
+xcodebuild -scheme QuillSwift test
+
+# Specific library test class
+swift test --filter MarkdownRendererTests
 
 # With verbose output
 swift test --verbose

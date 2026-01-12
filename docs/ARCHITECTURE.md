@@ -12,101 +12,44 @@
 
 ---
 
-## Package Structure
+## Project Structure
 
-QuillSwift is organized as a Swift Package with multiple targets:
+QuillSwift uses a hybrid approach:
+- **Xcode project** for the macOS app (proper app bundle with menus, focus, etc.)
+- **Swift Package Manager** for standalone libraries (MarkdownRenderer, SyntaxHighlighter)
 
 ```
 QuillSwift/
-├── Package.swift                 # Package manifest
+├── QuillSwift.xcodeproj/         # Xcode project (app target)
+├── Package.swift                 # Package manifest (libraries only)
+├── QuillSwiftApp/                # App source files
+│   ├── QuillSwiftApp.swift       # @main entry point
+│   ├── ContentView.swift         # Main view
+│   ├── MarkdownDocument.swift    # Document model
+│   ├── Info.plist                # App metadata
+│   └── QuillSwift.entitlements   # App entitlements
 ├── Sources/
-│   ├── QuillSwift/               # Main app target (executable)
-│   │   ├── App/
-│   │   │   ├── QuillSwiftApp.swift    # @main entry point
-│   │   │   ├── AppDelegate.swift      # NSApplicationDelegate (if needed)
-│   │   │   └── WindowManager.swift    # Multi-window handling
-│   │   │
-│   │   ├── Document/
-│   │   │   ├── MarkdownDocument.swift # Document model
-│   │   │   ├── DocumentState.swift    # View mode, dirty state, etc.
-│   │   │   └── FileHandling.swift     # Open, save, encoding
-│   │   │
-│   │   ├── Editor/
-│   │   │   ├── EditorView.swift       # Source editing view
-│   │   │   ├── EditorConfiguration.swift
-│   │   │   └── KeyboardShortcuts.swift
-│   │   │
-│   │   ├── Preview/
-│   │   │   ├── PreviewView.swift      # Rendered preview
-│   │   │   ├── PreviewConfiguration.swift
-│   │   │   └── LinkHandler.swift      # Click behavior
-│   │   │
-│   │   ├── Settings/
-│   │   │   ├── SettingsView.swift     # Preferences UI
-│   │   │   ├── AppSettings.swift      # Settings model
-│   │   │   └── ThemeManager.swift     # Theme loading
-│   │   │
-│   │   └── Shared/
-│   │       ├── Constants.swift
-│   │       └── Extensions/
-│   │
-│   ├── MarkdownRenderer/             # Standalone library target
-│   │   ├── Parser/
-│   │   │   ├── MarkdownParser.swift
-│   │   │   ├── AST/                   # Abstract syntax tree nodes
-│   │   │   └── Extensions/            # GFM, checkboxes, etc.
-│   │   │
-│   │   ├── Renderer/
-│   │   │   ├── HTMLRenderer.swift     # AST → HTML
-│   │   │   ├── AttributedStringRenderer.swift  # AST → NSAttributedString
-│   │   │   └── RenderContext.swift    # Theme, settings
-│   │   │
-│   │   ├── Sanitizer/
-│   │   │   ├── HTMLSanitizer.swift    # Security filtering
-│   │   │   └── URLValidator.swift     # Link scheme validation
-│   │   │
+│   ├── MarkdownRenderer/             # Standalone library (via SPM)
 │   │   └── Public/
 │   │       └── MarkdownRenderer.swift # Public API
 │   │
-│   └── SyntaxHighlighter/            # Standalone library target
-│       ├── Highlighter.swift          # Main API
-│       ├── Languages/
-│       │   ├── LanguageDefinition.swift
-│       │   ├── Swift.swift
-│       │   ├── JavaScript.swift
-│       │   └── ...
-│       │
-│       ├── Themes/
-│       │   ├── HighlightTheme.swift
-│       │   ├── DefaultLight.swift
-│       │   └── DefaultDark.swift
-│       │
-│       └── Renderer/
-│           ├── TokenRenderer.swift
-│           └── AttributedStringOutput.swift
+│   └── SyntaxHighlighter/            # Standalone library (via SPM)
+│       └── Highlighter.swift          # Main API
 │
 ├── Tests/
-│   ├── QuillSwiftTests/
-│   ├── MarkdownRendererTests/
-│   │   ├── ParserTests.swift
-│   │   ├── RendererTests.swift
-│   │   ├── SanitizerTests.swift
-│   │   └── ConformanceTests/         # CommonMark/GFM spec tests
-│   │
-│   └── SyntaxHighlighterTests/
+│   ├── MarkdownRendererTests/        # Tests for markdown library
+│   └── SyntaxHighlighterTests/       # Tests for highlighter library
 │
-├── Resources/
-│   ├── Assets.xcassets/              # App icons, images
-│   ├── Themes/                       # Built-in CSS themes
-│   │   ├── default-light.css
-│   │   └── default-dark.css
-│   └── Languages/                    # Language definitions (if external)
-│
-└── Fixtures/
-    ├── conformance/                  # CommonMark/GFM test cases
-    ├── renderer/                     # Rendering test cases
-    └── security/                     # Sanitization test cases
+└── Fixtures/                         # Test fixtures for conformance testing
+    ├── conformance/
+    ├── renderer/
+    └── security/
 ```
+
+**Build Commands:**
+- **App**: Open `QuillSwift.xcodeproj` in Xcode, or run `xcodebuild -scheme QuillSwift`
+- **Libraries only**: `swift build` (builds MarkdownRenderer and SyntaxHighlighter)
+- **Tests**: `swift test` (library tests) or run via Xcode (includes app tests)
 
 ---
 

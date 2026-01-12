@@ -9,11 +9,6 @@ let package = Package(
         .macOS(.v13)  // Ventura minimum, may increase if needed
     ],
     products: [
-        // Main application
-        .executable(
-            name: "QuillSwift",
-            targets: ["QuillSwift"]
-        ),
         // Standalone markdown renderer library
         .library(
             name: "MarkdownRenderer",
@@ -33,20 +28,6 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.15.0"),
     ],
     targets: [
-        // MARK: - Main Application
-
-        .executableTarget(
-            name: "QuillSwift",
-            dependencies: [
-                "MarkdownRenderer",
-                "SyntaxHighlighter",
-            ],
-            path: "Sources/QuillSwift",
-            resources: [
-                .copy("Resources"),
-            ]
-        ),
-
         // MARK: - Markdown Renderer Library
 
         .target(
@@ -67,17 +48,7 @@ let package = Package(
 
         // MARK: - Tests
 
-        .testTarget(
-            name: "QuillSwiftTests",
-            dependencies: [
-                "QuillSwift",
-                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
-            ],
-            path: "Tests/QuillSwiftTests",
-            resources: [
-                .copy("Fixtures"),
-            ]
-        ),
+        // Note: QuillSwiftTests now run via Xcode project
 
         .testTarget(
             name: "MarkdownRendererTests",
