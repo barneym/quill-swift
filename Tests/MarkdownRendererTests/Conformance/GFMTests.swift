@@ -59,6 +59,21 @@ final class GFMTests: XCTestCase {
         XCTAssertTrue(html.contains("<table>"))
     }
 
+    /// Test: Inline code in table cells (#23)
+    func testTableInlineCode() {
+        let markdown = """
+        | Column | Example |
+        |--------|---------|
+        | Code | `example` |
+        """
+        let html = render(markdown)
+        XCTAssertTrue(html.contains("<table>"))
+        // Inline code should be rendered as <code> tags
+        XCTAssertTrue(html.contains("<code>example</code>"), "Inline code should render as <code> tag, got: \(html)")
+        // Should NOT contain raw backticks
+        XCTAssertFalse(html.contains("`example`"), "Raw backticks should not appear in output")
+    }
+
     /// Example 202: Table without leading pipe
     func testExample202_TableWithoutLeadingPipe() {
         let markdown = """
