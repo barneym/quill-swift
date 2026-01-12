@@ -51,6 +51,9 @@ struct ContentView: View {
     /// Current line text for status bar (checkbox detection)
     @State private var currentLine: String?
 
+    /// Track the control active state to determine if this window is key
+    @Environment(\.controlActiveState) private var controlActiveState
+
     // MARK: - Body
 
     var body: some View {
@@ -71,16 +74,26 @@ struct ContentView: View {
         }
         .frame(minWidth: 600, minHeight: 400)
         .onReceive(NotificationCenter.default.publisher(for: .togglePreview)) { _ in
-            toggleViewMode()
+            // Only respond if this window is the key/active window
+            // This prevents all windows from toggling when menu/shortcut is used
+            if controlActiveState == .key {
+                toggleViewMode()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .exportHTML)) { _ in
-            exportAsHTML()
+            if controlActiveState == .key {
+                exportAsHTML()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .exportPDF)) { _ in
-            exportAsPDF()
+            if controlActiveState == .key {
+                exportAsPDF()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .copyAsHTML)) { _ in
-            copyAsHTML()
+            if controlActiveState == .key {
+                copyAsHTML()
+            }
         }
         .onAppear {
             registerDocument()
@@ -95,24 +108,32 @@ struct ContentView: View {
 
     // MARK: - Views
 
-    /// Mode indicator showing current view state
+    /// Mode indicator showing current view state - clickable to toggle modes
     private var modeIndicator: some View {
         HStack {
             Spacer()
 
-            Text(viewMode == .source ? "Source" : "Preview")
-                .font(.caption)
+            Button(action: toggleViewMode) {
+                HStack(spacing: 4) {
+                    Image(systemName: viewMode == .source ? "doc.text" : "eye")
+                        .font(.caption)
+                    Text(viewMode == .source ? "Source" : "Preview")
+                        .font(.caption)
+                }
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.vertical, 2)
                 .background(
                     Capsule()
                         .fill(Color.secondary.opacity(0.1))
                 )
+            }
+            .buttonStyle(.plain)
+            .help("Toggle between Source and Preview (⌘⇧P)")
 
             Spacer()
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
