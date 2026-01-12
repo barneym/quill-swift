@@ -26,6 +26,12 @@ class MarkdownTextView: NSTextView {
     /// Whether we're currently updating from external source (to prevent loops)
     private var isUpdatingFromExternal = false
 
+    /// Batch replacement tracking for Find & Replace optimization
+    private var batchReplacementCount = 0
+    private var batchReplacementTimer: Timer?
+    private let batchReplacementThreshold = 5  // Trigger batch mode after 5 rapid replacements
+    private var isInBatchMode = false
+
     // MARK: - Initialization
 
     /// Convenience initializer that creates a properly configured text system
@@ -129,6 +135,13 @@ class MarkdownTextView: NSTextView {
 
         // Don't process if updating from external source
         guard !isUpdatingFromExternal else { return }
+
+        // Skip highlighting during batch replacements (it will be done after batch ends)
+        guard !isInBatchMode else {
+            // Still notify about text change but don't highlight yet
+            onTextChange?(string)
+            return
+        }
 
         // Notify about text change
         onTextChange?(string)
@@ -312,9 +325,145 @@ class MarkdownTextView: NSTextView {
         super.insertText(string, replacementRange: replacementRange)
     }
 
+    // MARK: - Find & Replace Optimization
+
+    /// Override to batch rapid replacements (e.g., from Find & Replace All)
+    override func replaceCharacters(in range: NSRange, with string: String) {
+        // Track rapid replacements to detect batch operations
+        batchReplacementCount += 1
+
+        // Enter batch mode if we've hit the threshold
+        if batchReplacementCount >= batchReplacementThreshold && !isInBatchMode {
+            isInBatchMode = true
+            textStorage?.beginEditing()
+        }
+
+        // Reset the batch timer
+        batchReplacementTimer?.invalidate()
+        batchReplacementTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] _ in
+            self?.endBatchReplacementMode()
+        }
+
+        // Perform the actual replacement
+        super.replaceCharacters(in: range, with: string)
+    }
+
+    /// End batch replacement mode and finalize edits
+    private func endBatchReplacementMode() {
+        if isInBatchMode {
+            textStorage?.endEditing()
+            isInBatchMode = false
+
+            // Re-highlight after batch operation
+            DispatchQueue.main.async { [weak self] in
+                self?.highlightAllText()
+            }
+        }
+
+        batchReplacementCount = 0
+        batchReplacementTimer = nil
+    }
+
+    /// Override to intercept Replace All for optimized handling
+    override func performFindPanelAction(_ sender: Any?) {
+        // Check if this is Replace All action
+        guard let action = (sender as? NSMenuItem)?.tag else {
+            super.performFindPanelAction(sender)
+            return
+        }
+
+        // NSTextFinder.Action.replaceAll.rawValue == 12
+        if action == 12 {
+            performOptimizedReplaceAllFromFinder()
+        } else {
+            super.performFindPanelAction(sender)
+        }
+    }
+
+    /// Get current Find panel search and replacement strings and perform optimized replace
+    private func performOptimizedReplaceAllFromFinder() {
+        // Get find/replace strings from the shared find pasteboard
+        guard let findPasteboard = NSPasteboard(name: .find).string(forType: .string),
+              !findPasteboard.isEmpty else {
+            // Fall back to system behavior if we can't get find string
+            super.performFindPanelAction(NSTextFinder.Action.replaceAll.rawValue as AnyObject)
+            return
+        }
+
+        // Get replacement string from the find panel's text field
+        // Unfortunately there's no standard way to get this, so we use the Replace pasteboard
+        let replacePasteboard = NSPasteboard(name: NSPasteboard.Name("Replace"))
+        let replaceString = replacePasteboard.string(forType: .string) ?? ""
+
+        // Check if case-insensitive search is enabled (stored in user defaults)
+        var options: NSString.CompareOptions = []
+        if !UserDefaults.standard.bool(forKey: "NSFindPanelCaseInsensitiveSearch") {
+            options = []
+        } else {
+            options = [.caseInsensitive]
+        }
+
+        // Perform optimized replacement
+        let count = performOptimizedReplaceAll(find: findPasteboard, replaceWith: replaceString, options: options)
+
+        // Show result in a subtle way (optional: could use notification)
+        if count > 0 {
+            print("Replaced \(count) occurrences")
+        }
+    }
+
+    /// Perform optimized Replace All to avoid UI freeze on large files
+    /// Uses single batch edit operation instead of individual replacements
+    func performOptimizedReplaceAll(find searchString: String, replaceWith replacement: String, options: NSString.CompareOptions = []) -> Int {
+        guard let textStorage = textStorage else { return 0 }
+        guard !searchString.isEmpty else { return 0 }
+
+        let content = textStorage.string
+
+        // Find all match ranges first (working backwards to maintain range validity)
+        var matches: [NSRange] = []
+        var searchRange = NSRange(location: 0, length: content.count)
+        let nsContent = content as NSString
+
+        while searchRange.location < nsContent.length {
+            let foundRange = nsContent.range(of: searchString, options: options, range: searchRange)
+            if foundRange.location == NSNotFound {
+                break
+            }
+            matches.append(foundRange)
+            searchRange.location = foundRange.location + foundRange.length
+            searchRange.length = nsContent.length - searchRange.location
+        }
+
+        guard !matches.isEmpty else { return 0 }
+
+        // Batch all changes in a single undo group
+        undoManager?.beginUndoGrouping()
+        textStorage.beginEditing()
+
+        // Replace from end to start to maintain range validity
+        for range in matches.reversed() {
+            textStorage.replaceCharacters(in: range, with: replacement)
+        }
+
+        textStorage.endEditing()
+        undoManager?.endUndoGrouping()
+
+        // Re-highlight after replacement
+        DispatchQueue.main.async { [weak self] in
+            self?.highlightAllText()
+        }
+
+        // Notify about text change
+        onTextChange?(string)
+
+        return matches.count
+    }
+
     // MARK: - Cleanup
 
     deinit {
         highlightDebounceTimer?.invalidate()
+        batchReplacementTimer?.invalidate()
     }
 }
