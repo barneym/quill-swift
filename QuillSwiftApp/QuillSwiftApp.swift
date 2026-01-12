@@ -47,6 +47,37 @@ struct QuillSwiftApp: App {
                 Divider()
             }
 
+            // File menu export commands
+            CommandGroup(after: .importExport) {
+                Divider()
+
+                Button("Export as HTML...") {
+                    NotificationCenter.default.post(
+                        name: .exportHTML,
+                        object: nil
+                    )
+                }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+
+                Button("Export as PDF...") {
+                    NotificationCenter.default.post(
+                        name: .exportPDF,
+                        object: nil
+                    )
+                }
+                .keyboardShortcut("e", modifiers: [.command, .option])
+
+                Divider()
+
+                Button("Copy as HTML") {
+                    NotificationCenter.default.post(
+                        name: .copyAsHTML,
+                        object: nil
+                    )
+                }
+                .keyboardShortcut("c", modifiers: [.command, .option])
+            }
+
             // View menu additions
             CommandGroup(after: .toolbar) {
                 Button("Toggle Preview") {
@@ -192,4 +223,7 @@ struct QuillSwiftApp: App {
 
 extension Notification.Name {
     static let togglePreview = Notification.Name("togglePreview")
+    static let exportHTML = Notification.Name("exportHTML")
+    static let exportPDF = Notification.Name("exportPDF")
+    static let copyAsHTML = Notification.Name("copyAsHTML")
 }

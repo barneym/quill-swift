@@ -27,6 +27,8 @@
 		AA000032B /* ScrollSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000022 /* ScrollSync.swift */; };
 		AA000033 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000023 /* ThemeManager.swift */; };
 		AA000034 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000024 /* SettingsView.swift */; };
+		AA000035 /* HTMLExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000025 /* HTMLExporter.swift */; };
+		AA000036 /* PDFExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000026 /* PDFExporter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +52,8 @@
 		AA000022 /* ScrollSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollSync.swift; sourceTree = "<group>"; };
 		AA000023 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		AA000024 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AA000025 /* HTMLExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLExporter.swift; sourceTree = "<group>"; };
+		AA000026 /* PDFExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFExporter.swift; sourceTree = "<group>"; };
 		AA000020 /* QuillSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuillSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -73,6 +77,7 @@
 				AA000011 /* ContentView.swift */,
 				AA000012 /* MarkdownDocument.swift */,
 				AA000044 /* Editor */,
+				AA000047 /* Export */,
 				AA000043 /* Preview */,
 				AA000046 /* Settings */,
 				AA000045 /* StatusBar */,
@@ -139,6 +144,15 @@
 				AA00001C /* StatusBarView.swift */,
 			);
 			path = StatusBar;
+			sourceTree = "<group>";
+		};
+		AA000047 /* Export */ = {
+			isa = PBXGroup;
+			children = (
+				AA000025 /* HTMLExporter.swift */,
+				AA000026 /* PDFExporter.swift */,
+			);
+			path = Export;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -234,6 +248,8 @@
 				AA000032B /* ScrollSync.swift in Sources */,
 				AA000033 /* ThemeManager.swift in Sources */,
 				AA000034 /* SettingsView.swift in Sources */,
+				AA000035 /* HTMLExporter.swift in Sources */,
+				AA000036 /* PDFExporter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

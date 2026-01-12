@@ -63,6 +63,15 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .togglePreview)) { _ in
             toggleViewMode()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .exportHTML)) { _ in
+            exportAsHTML()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .exportPDF)) { _ in
+            exportAsPDF()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .copyAsHTML)) { _ in
+            copyAsHTML()
+        }
     }
 
     // MARK: - Views
@@ -186,6 +195,49 @@ struct ContentView: View {
                 scrollSync.scrollSourceToLine(previewPosition.sourceLine, in: textView)
             }
         }
+    }
+
+    // MARK: - Export Actions
+
+    /// Document title for export
+    private var documentTitle: String {
+        fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled"
+    }
+
+    /// Export document as HTML file
+    private func exportAsHTML() {
+        HTMLExporter.showExportPanel(
+            markdown: document.text,
+            title: documentTitle,
+            isDark: colorScheme == .dark
+        ) { success in
+            if !success {
+                print("HTML export cancelled or failed")
+            }
+        }
+    }
+
+    /// Export document as PDF file
+    private func exportAsPDF() {
+        PDFExporter.showExportPanel(
+            markdown: document.text,
+            title: documentTitle,
+            isDark: colorScheme == .dark
+        ) { success in
+            if !success {
+                print("PDF export cancelled or failed")
+            }
+        }
+    }
+
+    /// Copy document as HTML to clipboard
+    private func copyAsHTML() {
+        let exporter = HTMLExporter(
+            markdown: document.text,
+            title: documentTitle,
+            isDark: colorScheme == .dark
+        )
+        exporter.copyToClipboard()
     }
 }
 
