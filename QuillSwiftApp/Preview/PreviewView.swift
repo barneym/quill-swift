@@ -79,6 +79,22 @@ struct PreviewView: NSViewRepresentable {
             lineHeight: lineHeight,
             customCSS: customCSS
         )
+
+        // Only reload if content has actually changed
+        // This prevents scroll position reset on unrelated SwiftUI updates
+        guard fullHTML != context.coordinator.lastLoadedHTML else {
+            return
+        }
+
+        // Capture current scroll position before reloading
+        webView.evaluateJavaScript("window.pageYOffset || document.documentElement.scrollTop") { result, _ in
+            if let offset = result as? CGFloat, offset > 0 {
+                context.coordinator.pendingScrollOffset = offset
+            }
+        }
+
+        // Store the new HTML and reload
+        context.coordinator.lastLoadedHTML = fullHTML
         webView.loadHTMLString(fullHTML, baseURL: baseURL)
     }
 
@@ -93,6 +109,24 @@ struct PreviewView: NSViewRepresentable {
 
         /// Reference to the webView for scroll sync
         weak var webView: WKWebView?
+
+        /// Last loaded HTML to detect changes
+        var lastLoadedHTML: String?
+
+        /// Pending scroll position to restore after load
+        var pendingScrollOffset: CGFloat?
+
+        /// Restore scroll position after page finishes loading
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            // Restore scroll position if we have one pending
+            if let offset = pendingScrollOffset, offset > 0 {
+                // Small delay to ensure content is laid out
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                    webView.evaluateJavaScript("window.scrollTo(0, \(offset));", completionHandler: nil)
+                    self?.pendingScrollOffset = nil
+                }
+            }
+        }
 
         /// Handle link clicks - open external links in default browser
         func webView(
