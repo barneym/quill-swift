@@ -460,6 +460,145 @@ class MarkdownTextView: NSTextView {
         return matches.count
     }
 
+    // MARK: - Cmd-Click Link Handling
+
+    override func mouseDown(with event: NSEvent) {
+        // Check for Cmd-Click (command modifier)
+        if event.modifierFlags.contains(.command) {
+            let point = convert(event.locationInWindow, from: nil)
+            if handleCmdClickAtPoint(point) {
+                return // Link was opened, don't pass to super
+            }
+        }
+
+        super.mouseDown(with: event)
+    }
+
+    /// Handle Cmd-Click at a specific point, returning true if a link was opened
+    private func handleCmdClickAtPoint(_ point: NSPoint) -> Bool {
+        guard let layoutManager = layoutManager,
+              let textContainer = textContainer else {
+            return false
+        }
+
+        // Convert point to character index
+        var fraction: CGFloat = 0
+        let glyphIndex = layoutManager.glyphIndex(for: point, in: textContainer, fractionOfDistanceThroughGlyph: &fraction)
+        let charIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
+
+        // Get the line containing this character
+        let nsString = string as NSString
+        guard charIndex < nsString.length else { return false }
+
+        let lineRange = nsString.lineRange(for: NSRange(location: charIndex, length: 0))
+        let lineText = nsString.substring(with: lineRange)
+
+        // Try to find a URL at this position
+        if let url = findURLAtIndex(charIndex, inLine: lineText, lineStart: lineRange.location) {
+            NSWorkspace.shared.open(url)
+            return true
+        }
+
+        return false
+    }
+
+    /// Find a URL at the given character index within a line
+    private func findURLAtIndex(_ charIndex: Int, inLine lineText: String, lineStart: Int) -> URL? {
+        let localIndex = charIndex - lineStart
+
+        // Pattern 1: Markdown link syntax [text](url)
+        if let url = findMarkdownLinkAtIndex(localIndex, in: lineText) {
+            return url
+        }
+
+        // Pattern 2: Raw URL (http://, https://, file://)
+        if let url = findRawURLAtIndex(localIndex, in: lineText) {
+            return url
+        }
+
+        // Pattern 3: Autolink syntax <url>
+        if let url = findAutolinkAtIndex(localIndex, in: lineText) {
+            return url
+        }
+
+        return nil
+    }
+
+    /// Find markdown link [text](url) at index
+    private func findMarkdownLinkAtIndex(_ localIndex: Int, in lineText: String) -> URL? {
+        // Match [text](url) pattern
+        let pattern = #"\[([^\]]+)\]\(([^)]+)\)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+
+        let nsLine = lineText as NSString
+        let matches = regex.matches(in: lineText, range: NSRange(location: 0, length: nsLine.length))
+
+        for match in matches {
+            // Check if localIndex falls within the entire match
+            if localIndex >= match.range.location && localIndex < NSMaxRange(match.range) {
+                // Extract the URL part (group 2)
+                if match.numberOfRanges >= 3 {
+                    let urlRange = match.range(at: 2)
+                    let urlString = nsLine.substring(with: urlRange)
+                    return URL(string: urlString)
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// Find raw URL at index (http://, https://, file://)
+    private func findRawURLAtIndex(_ localIndex: Int, in lineText: String) -> URL? {
+        // Match URLs starting with http://, https://, or file://
+        let pattern = #"(https?://|file://)[^\s<>\[\]()\"'`]+"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
+
+        let nsLine = lineText as NSString
+        let matches = regex.matches(in: lineText, range: NSRange(location: 0, length: nsLine.length))
+
+        for match in matches {
+            if localIndex >= match.range.location && localIndex < NSMaxRange(match.range) {
+                let urlString = nsLine.substring(with: match.range)
+                return URL(string: urlString)
+            }
+        }
+
+        return nil
+    }
+
+    /// Find autolink <url> at index
+    private func findAutolinkAtIndex(_ localIndex: Int, in lineText: String) -> URL? {
+        // Match <url> pattern (autolinks)
+        let pattern = #"<(https?://[^>]+)>"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
+
+        let nsLine = lineText as NSString
+        let matches = regex.matches(in: lineText, range: NSRange(location: 0, length: nsLine.length))
+
+        for match in matches {
+            if localIndex >= match.range.location && localIndex < NSMaxRange(match.range) {
+                if match.numberOfRanges >= 2 {
+                    let urlRange = match.range(at: 1)
+                    let urlString = nsLine.substring(with: urlRange)
+                    return URL(string: urlString)
+                }
+            }
+        }
+
+        return nil
+    }
+
+    // MARK: - Cursor Feedback for Links
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+
+        // When command is held, we could change cursor over links
+        // This is complex to implement correctly, so for now we rely on
+        // the visual feedback of the syntax highlighting showing links
+    }
+
     // MARK: - Cleanup
 
     deinit {

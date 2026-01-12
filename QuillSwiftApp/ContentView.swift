@@ -198,6 +198,11 @@ struct ContentView: View {
             viewMode = viewMode == .source ? .preview : .source
         }
 
+        // Clear current line when switching to preview (no cursor in preview)
+        if viewMode == .preview {
+            currentLine = nil
+        }
+
         // Restore position after switching (with delay for view to appear)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             restorePosition(to: viewMode)
