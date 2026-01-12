@@ -8,6 +8,7 @@ import MarkdownRenderer
 /// Phase 2: NSTextView source editor with syntax highlighting + WKWebView preview.
 /// Phase 7: Scroll sync between source and preview on mode toggle.
 /// Phase 8: ThemeManager integration for user customization.
+/// Phase 12: Session management and draft storage integration.
 struct ContentView: View {
 
     // MARK: - Properties
@@ -18,6 +19,9 @@ struct ContentView: View {
     /// The file URL of the document (nil for unsaved)
     let fileURL: URL?
 
+    /// Unique identifier for this document instance
+    @State private var documentID = UUID()
+
     /// Current view mode (source or preview)
     @State private var viewMode: ViewMode = .source
 
@@ -26,6 +30,12 @@ struct ContentView: View {
 
     /// Theme manager for user customization
     @ObservedObject private var themeManager = ThemeManager.shared
+
+    /// Session manager for window state tracking
+    private let sessionManager = SessionManager.shared
+
+    /// Draft storage for unsaved document recovery
+    private let draftStorage = DraftStorage.shared
 
     // MARK: - Scroll Sync
 
@@ -71,6 +81,15 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .copyAsHTML)) { _ in
             copyAsHTML()
+        }
+        .onAppear {
+            registerDocument()
+        }
+        .onDisappear {
+            cleanupDocument()
+        }
+        .onChange(of: document.text) { _ in
+            handleTextChange()
         }
     }
 
@@ -238,6 +257,53 @@ struct ContentView: View {
             isDark: colorScheme == .dark
         )
         exporter.copyToClipboard()
+    }
+
+    // MARK: - Session Management
+
+    /// Register document with session manager on appear
+    private func registerDocument() {
+        // Get window frame if available
+        let frame = NSApp.keyWindow?.frame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
+
+        // Register with session manager
+        sessionManager.registerWindow(
+            documentID: documentID,
+            fileURL: fileURL,
+            frame: frame,
+            isDirty: false
+        )
+
+        // Register with draft storage for unsaved documents
+        if fileURL == nil {
+            draftStorage.register(
+                documentID: documentID,
+                text: document.text,
+                title: documentTitle
+            )
+        }
+    }
+
+    /// Clean up document registration on disappear
+    private func cleanupDocument() {
+        // Remove from session manager
+        sessionManager.removeWindow(documentID: documentID)
+
+        // Remove draft if document was saved (has fileURL) or explicitly closed
+        if fileURL != nil {
+            draftStorage.removeDraft(documentID: documentID)
+        }
+    }
+
+    /// Handle text changes for draft storage
+    private func handleTextChange() {
+        // Mark document as dirty
+        sessionManager.markDirty(documentID: documentID, isDirty: true)
+
+        // Update draft for unsaved documents
+        if fileURL == nil {
+            draftStorage.updateDraft(documentID: documentID, text: document.text)
+        }
     }
 }
 
