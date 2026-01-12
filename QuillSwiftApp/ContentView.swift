@@ -181,8 +181,45 @@ struct ContentView: View {
             customCSS: themeManager.customCSS.isEmpty ? nil : themeManager.customCSS,
             onWebViewReady: { webView in
                 previewWebView = webView
+            },
+            onCheckboxToggle: { index, isChecked in
+                toggleCheckboxInSource(at: index, checked: isChecked)
             }
         )
+    }
+
+    /// Toggle a checkbox in the source markdown at the given index
+    private func toggleCheckboxInSource(at index: Int, checked: Bool) {
+        var text = document.text
+
+        // Pattern to match checkbox lines: - [ ] or - [x] or * [ ] etc.
+        let pattern = #"^(\s*[-*+]|\s*\d+\.)\s+\[[ xX]\]"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .anchorsMatchLines) else {
+            return
+        }
+
+        let nsText = text as NSString
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
+
+        // Find the match at the specified index
+        guard index < matches.count else { return }
+        let match = matches[index]
+
+        // Find the checkbox character position (the character inside [ ])
+        let matchedString = nsText.substring(with: match.range)
+        if let bracketRange = matchedString.range(of: "[") {
+            let bracketOffset = matchedString.distance(from: matchedString.startIndex, to: bracketRange.lowerBound)
+            let checkboxCharLocation = match.range.location + bracketOffset + 1
+
+            // Replace the checkbox character
+            let newChar = checked ? "x" : " "
+            let replaceRange = NSRange(location: checkboxCharLocation, length: 1)
+
+            if let range = Range(replaceRange, in: text) {
+                text.replaceSubrange(range, with: newChar)
+                document.text = text
+            }
+        }
     }
 
     // MARK: - Actions

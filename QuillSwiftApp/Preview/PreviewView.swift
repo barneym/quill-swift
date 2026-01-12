@@ -9,6 +9,7 @@ import WebKit
 /// - User-customizable font size, line height, and CSS
 /// - Clickable links that open in the default browser
 /// - Scroll sync with source editor
+/// - Clickable checkboxes that update source markdown
 struct PreviewView: NSViewRepresentable {
 
     // MARK: - Properties
@@ -34,6 +35,9 @@ struct PreviewView: NSViewRepresentable {
     /// Optional callback to receive webView reference for scroll sync
     var onWebViewReady: ((WKWebView) -> Void)?
 
+    /// Callback when a checkbox is toggled (checkbox index, new checked state)
+    var onCheckboxToggle: ((Int, Bool) -> Void)?
+
     // MARK: - NSViewRepresentable
 
     func makeNSView(context: Context) -> WKWebView {
@@ -45,6 +49,10 @@ struct PreviewView: NSViewRepresentable {
 
         // Prevent arbitrary network requests
         configuration.websiteDataStore = .nonPersistent()
+
+        // Add script message handler for checkbox toggling
+        let contentController = configuration.userContentController
+        contentController.add(context.coordinator, name: "checkboxToggle")
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
 
@@ -63,6 +71,9 @@ struct PreviewView: NSViewRepresentable {
 
         // Store reference in coordinator for scroll sync
         context.coordinator.webView = webView
+
+        // Store the checkbox callback
+        context.coordinator.onCheckboxToggle = onCheckboxToggle
 
         // Notify parent of webView for scroll sync
         DispatchQueue.main.async {
@@ -104,8 +115,8 @@ struct PreviewView: NSViewRepresentable {
 
     // MARK: - Coordinator
 
-    /// Handles navigation events and link clicks
-    class Coordinator: NSObject, WKNavigationDelegate {
+    /// Handles navigation events, link clicks, and checkbox interactions
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
 
         /// Reference to the webView for scroll sync
         weak var webView: WKWebView?
@@ -115,6 +126,27 @@ struct PreviewView: NSViewRepresentable {
 
         /// Pending scroll position to restore after load
         var pendingScrollOffset: CGFloat?
+
+        /// Callback for checkbox toggle events
+        var onCheckboxToggle: ((Int, Bool) -> Void)?
+
+        // MARK: - WKScriptMessageHandler
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "checkboxToggle",
+                  let body = message.body as? [String: Any],
+                  let index = body["index"] as? Int,
+                  let checked = body["checked"] as? Bool else {
+                return
+            }
+
+            // Notify the parent view of the checkbox toggle
+            DispatchQueue.main.async { [weak self] in
+                self?.onCheckboxToggle?(index, checked)
+            }
+        }
+
+        // MARK: - WKNavigationDelegate
 
         /// Restore scroll position after page finishes loading
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

@@ -83,11 +83,43 @@ struct PreviewTheme {
             <article class="markdown-body">
             \(bodyContent)
             </article>
+            \(checkboxScript)
         </body>
         </html>
         """
     }
 }
+
+// MARK: - Checkbox Interaction Script
+
+private let checkboxScript = """
+<script>
+(function() {
+    // Find all task list checkboxes and make them interactive
+    const checkboxes = document.querySelectorAll('.task-list-item input[type="checkbox"].task-checkbox');
+
+    checkboxes.forEach((checkbox, index) => {
+        // Remove disabled attribute to make clickable
+        checkbox.removeAttribute('disabled');
+        checkbox.style.cursor = 'pointer';
+
+        // Add click handler
+        checkbox.addEventListener('change', function(e) {
+            // Prevent default and handle manually
+            const isChecked = this.checked;
+
+            // Send message to Swift
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.checkboxToggle) {
+                window.webkit.messageHandlers.checkboxToggle.postMessage({
+                    index: index,
+                    checked: isChecked
+                });
+            }
+        });
+    });
+})();
+</script>
+"""
 
 // MARK: - Base CSS
 
