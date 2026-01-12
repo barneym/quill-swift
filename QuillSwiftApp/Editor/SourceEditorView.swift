@@ -198,8 +198,9 @@ struct SourceEditorView: NSViewRepresentable {
         }
 
         func undoManager(for view: NSTextView) -> UndoManager? {
-            // Use the text view's own undo manager
-            return view.undoManager
+            // Return nil to use the window's undo manager
+            // This avoids potential issues during menu validation
+            return nil
         }
     }
 }
