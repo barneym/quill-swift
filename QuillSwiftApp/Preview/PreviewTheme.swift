@@ -248,19 +248,45 @@ img {
     border-radius: var(--qs-image-border-radius);
 }
 
+/* Markdown images with responsive sizing */
+img.md-image {
+    max-width: 100%;
+    height: auto;
+    display: inline-block;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+img.md-image:hover {
+    opacity: 0.9;
+}
+
+/* Images in table cells should fit properly */
+td img.md-image,
+th img.md-image {
+    max-width: 200px;
+    max-height: 150px;
+    object-fit: contain;
+}
+
 /* Task lists (checkboxes) */
 .task-list-item {
     list-style-type: none;
     margin-left: -1.5em;
+    position: relative;
 }
 
-.task-list-item input[type="checkbox"] {
+/* Standard HTML checkboxes */
+.task-list-item input[type="checkbox"].task-checkbox {
     margin-right: 0.5em;
     vertical-align: middle;
+    width: 16px;
+    height: 16px;
+    cursor: default;
 }
 
-/* Custom checkboxes with SF Symbol fallback */
-.task-list-item.custom-checkbox {
+/* Extended checkboxes with SF Symbol fallback */
+.task-list-item.extended-checkbox {
     position: relative;
 }
 
@@ -272,11 +298,6 @@ img {
     font-size: 1.1em;
     vertical-align: middle;
     cursor: default;
-}
-
-/* Hide standard checkbox for custom types */
-.task-list-item.custom-checkbox input[type="checkbox"] {
-    display: none;
 }
 
 /* Strong and emphasis */

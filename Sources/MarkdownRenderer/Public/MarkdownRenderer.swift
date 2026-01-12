@@ -33,6 +33,10 @@ public struct MarkdownRenderer {
         /// Enable syntax highlighting for code blocks (default: true)
         public var highlightCodeBlocks: Bool = true
 
+        /// Allow raw HTML in markdown (default: true for editor preview)
+        /// When true, inline HTML and HTML blocks are rendered as-is
+        public var allowRawHTML: Bool = true
+
         public init() {}
     }
 
@@ -60,7 +64,8 @@ public struct MarkdownRenderer {
         let document = Document(parsing: markdown)
         var renderer = HTMLRenderer(
             isDarkTheme: options.isDarkTheme,
-            highlightCode: options.highlightCodeBlocks
+            highlightCode: options.highlightCodeBlocks,
+            allowRawHTML: options.allowRawHTML
         )
         return renderer.render(document)
     }
@@ -101,12 +106,16 @@ struct HTMLRenderer: MarkupWalker {
     /// Whether to apply syntax highlighting to code blocks
     let highlightCode: Bool
 
+    /// Whether to allow raw HTML pass-through
+    let allowRawHTML: Bool
+
     // Track current table's column alignments for cell rendering
     private var currentTableAlignments: [Table.ColumnAlignment?] = []
 
-    init(isDarkTheme: Bool = false, highlightCode: Bool = true) {
+    init(isDarkTheme: Bool = false, highlightCode: Bool = true, allowRawHTML: Bool = true) {
         self.isDarkTheme = isDarkTheme
         self.highlightCode = highlightCode
+        self.allowRawHTML = allowRawHTML
     }
 
     mutating func render(_ document: Document) -> String {
@@ -187,7 +196,11 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitImage(_ image: Image) -> () {
         let src = escapeHTML(image.source ?? "")
         let alt = escapeHTML(image.plainText)
-        html += "<img src=\"\(src)\" alt=\"\(alt)\">"
+        let title = image.title.map { " title=\"\(escapeHTML($0))\"" } ?? ""
+
+        // Add responsive class for proper sizing in preview
+        // CSS should handle max-width: 100% and proper table cell fitting
+        html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title) class=\"md-image\" loading=\"lazy\">"
     }
 
     mutating func visitUnorderedList(_ list: UnorderedList) -> () {
@@ -197,22 +210,25 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     mutating func visitOrderedList(_ list: OrderedList) -> () {
-        html += "<ol>\n"
+        // Include start attribute if list doesn't start at 1
+        let startAttr = list.startIndex != 1 ? " start=\"\(list.startIndex)\"" : ""
+        html += "<ol\(startAttr)>\n"
         descendInto(list)
         html += "</ol>\n"
     }
 
     mutating func visitListItem(_ item: ListItem) -> () {
-        // Check for built-in checkbox first
+        // Check for built-in checkbox first (standard [ ] and [x] syntax)
         if let checkbox = item.checkbox {
-            // Map built-in checkbox to our type system
-            let checkboxType = checkbox == .checked ? CheckboxType.complete : CheckboxType.pending
-            html += renderCheckboxListItem(checkboxType: checkboxType)
+            // Standard checkboxes use HTML input elements
+            let isChecked = checkbox == .checked
+            html += renderStandardCheckboxListItem(isChecked: isChecked)
             descendInto(item)
             html += "</li>\n"
         } else if let customCheckbox = parseExtendedCheckbox(from: item) {
             // Handle extended checkbox syntax [/], [-], [?], [!], etc.
-            html += renderCheckboxListItem(checkboxType: customCheckbox.type)
+            // Extended checkboxes use SF Symbol unicode fallbacks
+            html += renderExtendedCheckboxListItem(checkboxType: customCheckbox.type)
             // Render content without the checkbox marker
             renderListItemContentWithoutCheckbox(item, markerLength: customCheckbox.markerLength)
             html += "</li>\n"
@@ -257,8 +273,17 @@ struct HTMLRenderer: MarkupWalker {
         return (type: checkboxType, markerLength: 4) // "[X] " = 4 characters
     }
 
-    /// Render a checkbox list item opener with SF Symbol
-    private func renderCheckboxListItem(checkboxType: CheckboxType) -> String {
+    /// Render a standard checkbox list item opener with HTML input element
+    private func renderStandardCheckboxListItem(isChecked: Bool) -> String {
+        let checkedAttr = isChecked ? " checked" : ""
+        let status = isChecked ? "complete" : "pending"
+        return """
+        <li class="task-list-item" data-checkbox-status="\(status)"><input type="checkbox" class="task-checkbox"\(checkedAttr) disabled>
+        """
+    }
+
+    /// Render an extended checkbox list item opener with SF Symbol unicode
+    private func renderExtendedCheckboxListItem(checkboxType: CheckboxType) -> String {
         let color = checkboxType.cssColor(isDark: isDarkTheme)
         let symbol = checkboxType.symbol
         let name = escapeHTML(checkboxType.name)
@@ -267,7 +292,7 @@ struct HTMLRenderer: MarkupWalker {
         let symbolDisplay = sfSymbolToUnicode(symbol)
 
         return """
-        <li class="task-list-item custom-checkbox" data-checkbox-id="\(escapeHTML(checkboxType.id))" title="\(name)"><span class="checkbox-symbol" style="color: \(color);">\(symbolDisplay)</span>
+        <li class="task-list-item extended-checkbox" data-checkbox-id="\(escapeHTML(checkboxType.id))" title="\(name)"><span class="checkbox-symbol" style="color: \(color);">\(symbolDisplay)</span>
         """
     }
 
@@ -402,13 +427,20 @@ struct HTMLRenderer: MarkupWalker {
     // MARK: - Inline HTML
 
     mutating func visitInlineHTML(_ inlineHTML: InlineHTML) -> () {
-        // Security: Strip raw HTML by default
-        // TODO: Add sanitizer option to allow safe HTML elements
+        if allowRawHTML {
+            // Pass through raw HTML as-is
+            html += inlineHTML.rawHTML
+        }
+        // When allowRawHTML is false, HTML is stripped (no output)
     }
 
     mutating func visitHTMLBlock(_ htmlBlock: HTMLBlock) -> () {
-        // Security: Strip raw HTML blocks by default
-        // TODO: Add sanitizer option to allow safe HTML blocks
+        if allowRawHTML {
+            // Pass through raw HTML block as-is
+            html += htmlBlock.rawHTML
+            html += "\n"
+        }
+        // When allowRawHTML is false, HTML blocks are stripped (no output)
     }
 
     // MARK: - Helpers
