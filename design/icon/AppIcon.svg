@@ -1,0 +1,89 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Deep navy background, lighter at top -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#2c4f80"/>
+      <stop offset="0.5" stop-color="#1c3557"/>
+      <stop offset="1"   stop-color="#0e1e33"/>
+    </linearGradient>
+    <!-- Soft top-light glow for the edge-lit feel -->
+    <radialGradient id="glow" cx="0.5" cy="0.12" r="0.9">
+      <stop offset="0"   stop-color="#5b86c4" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#3a5f96" stop-opacity="0.18"/>
+      <stop offset="1"   stop-color="#0e1e33" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Subtle white sheen on the feather vane -->
+    <linearGradient id="vane" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d8e2f2"/>
+    </linearGradient>
+    <clipPath id="squircle">
+      <rect x="96" y="96" width="832" height="832" rx="185" ry="185"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background squircle -->
+  <rect x="96" y="96" width="832" height="832" rx="185" ry="185" fill="url(#bg)"/>
+  <rect x="96" y="96" width="832" height="832" rx="185" ry="185" fill="url(#glow)"/>
+
+  <!-- Edge lighting: bright rim at top, fading down -->
+  <g clip-path="url(#squircle)">
+    <rect x="96" y="96" width="832" height="832" rx="185" ry="185"
+          fill="none" stroke="#89b0e6" stroke-opacity="0.65" stroke-width="6"/>
+    <rect x="102" y="102" width="820" height="820" rx="180" ry="180"
+          fill="none" stroke="#0a1626" stroke-opacity="0.5" stroke-width="4"/>
+  </g>
+
+  <!-- ===== Inkwell ===== -->
+  <g>
+    <!-- pot body -->
+    <path d="M 372 700
+             C 372 812, 652 812, 652 700
+             L 636 632
+             C 636 596, 388 596, 388 632
+             Z"
+          fill="#f3f7ff"/>
+    <!-- pot shading -->
+    <path d="M 512 596
+             C 600 596, 636 610, 636 632
+             L 652 700
+             C 652 756, 582 786, 512 786
+             Z"
+          fill="#c9d6ec" opacity="0.55"/>
+    <!-- ink opening -->
+    <ellipse cx="512" cy="628" rx="124" ry="30" fill="#0e1e33"/>
+    <ellipse cx="512" cy="624" rx="124" ry="30" fill="#16283f"/>
+    <!-- ink surface highlight -->
+    <ellipse cx="486" cy="620" rx="54" ry="12" fill="#3a5f96" opacity="0.7"/>
+  </g>
+
+  <!-- ===== Quill feather ===== -->
+  <g transform="rotate(-32 512 512)">
+    <!-- shaft dipping into the well; tip up high -->
+    <!-- vane (feather body) -->
+    <path d="M 512 250
+             C 452 330, 430 470, 452 636
+             C 496 612, 566 606, 596 470
+             C 604 380, 566 300, 512 250 Z"
+          fill="url(#vane)"/>
+    <!-- central shaft -->
+    <path d="M 512 258 C 486 360, 480 500, 494 648"
+          fill="none" stroke="#9fb4d6" stroke-width="9" stroke-linecap="round"/>
+    <!-- barb separations (left side) -->
+    <g stroke="#c4d0e6" stroke-width="4" stroke-linecap="round" opacity="0.85">
+      <path d="M 500 320 C 480 336, 466 360, 460 392" fill="none"/>
+      <path d="M 494 392 C 470 410, 456 440, 452 476" fill="none"/>
+      <path d="M 490 470 C 470 490, 460 522, 460 558" fill="none"/>
+      <path d="M 490 548 C 476 568, 470 596, 472 624" fill="none"/>
+    </g>
+    <!-- barb separations (right side) -->
+    <g stroke="#c4d0e6" stroke-width="4" stroke-linecap="round" opacity="0.7">
+      <path d="M 522 320 C 546 340, 566 372, 574 410" fill="none"/>
+      <path d="M 522 400 C 552 424, 574 460, 578 500" fill="none"/>
+      <path d="M 512 494 C 544 516, 564 550, 560 588" fill="none"/>
+    </g>
+    <!-- nib below the vane, into the well -->
+    <path d="M 486 636 L 502 720 L 518 636 Z" fill="#f3f7ff"/>
+    <path d="M 502 690 L 502 720" stroke="#16283f" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>
