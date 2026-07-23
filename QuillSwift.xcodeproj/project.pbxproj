@@ -33,6 +33,7 @@
 		AA000038 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000028 /* SessionManager.swift */; };
 		AA000039 /* DraftStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000029 /* DraftStorage.swift */; };
 		AA00003A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002A /* AppDelegate.swift */; };
+		AA0000A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000A0 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -63,6 +64,7 @@
 		AA000029 /* DraftStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftStorage.swift; sourceTree = "<group>"; };
 		AA00002A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AA000020 /* QuillSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuillSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000A0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,6 +94,7 @@
 				AA000049 /* Session */,
 				AA000046 /* Settings */,
 				AA000045 /* StatusBar */,
+				AA0000A0 /* Assets.xcassets */,
 				AA000013 /* Info.plist */,
 				AA000014 /* QuillSwift.entitlements */,
 			);
@@ -248,6 +251,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA0000A1 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
