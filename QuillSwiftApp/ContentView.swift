@@ -352,7 +352,11 @@ struct ContentView: View {
             fileMonitor.stop()
             return
         }
-        fileMonitor.start(url: fileURL, currentText: { document.text })
+        fileMonitor.start(
+            url: fileURL,
+            currentText: { document.text },
+            savedModificationDate: { NSDocumentController.shared.document(for: fileURL)?.fileModificationDate }
+        )
     }
 
     /// File > Reload from Disk: confirm first if there are unsaved edits.
@@ -489,6 +493,8 @@ struct ContentView: View {
 
     /// Handle text changes for draft storage
     private func handleTextChange() {
+        fileMonitor.documentTextDidChange()
+
         // Mark document as dirty
         sessionManager.markDirty(documentID: documentID, isDirty: true)
 

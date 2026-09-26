@@ -29,6 +29,7 @@ final class FileChangeMonitor: ObservableObject {
 
     private var url: URL?
     private var currentText: () -> String = { "" }
+    private var savedModificationDate: () -> Date? = { nil }
     private var source: DispatchSourceFileSystemObject?
     private var pendingCheck: DispatchWorkItem?
     private var activationObserver: NSObjectProtocol?
@@ -39,14 +40,22 @@ final class FileChangeMonitor: ObservableObject {
     /// Disk contents the user chose to keep their own version over
     private var dismissedDiskContents: Data?
 
+    /// Disk contents at the last check
+    private var lastDiskContents: Data?
+
     // MARK: - Lifecycle
 
-    /// Start (or restart) watching `url`. `currentText` reads the live document text.
-    func start(url: URL, currentText: @escaping () -> String) {
+    /// Start (or restart) watching `url`.
+    /// - Parameters:
+    ///   - currentText: reads the live document text
+    ///   - savedModificationDate: the file date NSDocument recorded at its last
+    ///     read or save, used to recognize our own saves while typing continues
+    func start(url: URL, currentText: @escaping () -> String, savedModificationDate: @escaping () -> Date?) {
         if url == self.url, source != nil { return }
         stop()
         self.url = url
         self.currentText = currentText
+        self.savedModificationDate = savedModificationDate
         baseline = try? Data(contentsOf: url)
         change = nil
         dismissedDiskContents = nil
@@ -85,6 +94,15 @@ final class FileChangeMonitor: ObservableObject {
         if change == .modified, let url {
             dismissedDiskContents = try? Data(contentsOf: url)
         }
+        change = nil
+    }
+
+    /// Call when the document text changes: clears the banner if the document
+    /// caught up with the disk by other means (e.g. NSDocument's own revert).
+    func documentTextDidChange() {
+        guard change == .modified, let lastDiskContents,
+              Data(currentText().utf8) == lastDiskContents else { return }
+        baseline = lastDiskContents
         change = nil
     }
 
@@ -160,6 +178,7 @@ final class FileChangeMonitor: ObservableObject {
             }
             return
         }
+        lastDiskContents = disk
         if disk == baseline {
             // Unchanged content (or back to what we knew); a deleted file may have returned
             if change == .deleted { change = nil }
@@ -170,6 +189,13 @@ final class FileChangeMonitor: ObservableObject {
             baseline = disk
             dismissedDiskContents = nil
             change = nil
+            return
+        }
+        if let saved = savedModificationDate(),
+           let onDisk = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date,
+           abs(onDisk.timeIntervalSince(saved)) < 0.001 {
+            // Written by our own save; the editor has simply moved on since
+            baseline = disk
             return
         }
         if disk == dismissedDiskContents { return }
