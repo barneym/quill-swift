@@ -156,7 +156,7 @@ struct QuillSwiftApp: App {
 
                 Divider()
 
-                // Headings
+                // Headings (⌥⌘1–6 / ⌥⌘0 also work; see AppDelegate)
                 Menu("Heading") {
                     Button("Heading 1") {
                         performFormattingCommand(.heading(level: 1))

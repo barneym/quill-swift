@@ -8,6 +8,7 @@ import AppKit
 /// - ⌘T opens a new tab in the current window; ⇧⌘T reopens the last closed tab
 /// - Documents opened while a document window is frontmost join it as a tab
 ///   (Settings → "Open documents in tabs"), like Safari's "open in tabs"
+/// - ⌥⌘1–6 / ⌥⌘0 set headings (Google Docs/Word convention), alongside ⌘1–6 / ⌘0
 /// - ⌘` cycles windows (tab groups), which AppKit provides for every app
 /// - Tabs can be dragged out into windows, merged, and shown in the tab
 ///   overview via the standard Window menu items AppKit adds
@@ -131,14 +132,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Tab Keys
 
-    /// Handle tab-cycling keys before the text view sees them.
+    /// Handle tab-cycling keys, and the alternate heading shortcuts, before
+    /// the text view sees them.
     private func installTabKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, let direction = Self.tabCycleDirection(for: event) else { return event }
+            guard let self else { return event }
+            if let command = Self.alternateHeadingCommand(for: event),
+               let textView = NSApp.keyWindow?.firstResponder as? MarkdownTextView {
+                textView.applyFormatting(command)
+                return nil
+            }
+            guard let direction = Self.tabCycleDirection(for: event) else { return event }
             guard let window = NSApp.keyWindow, self.isDocumentWindow(window) else { return event }
             self.selectTab(offset: direction, in: window)
             return nil
         }
+    }
+
+    /// ⌥⌘1–6 / ⌥⌘0: the heading shortcuts used by Google Docs, Word and Notion,
+    /// accepted alongside QuillSwift's ⌘1–6 / ⌘0 (a menu item shows only one).
+    static func alternateHeadingCommand(for event: NSEvent) -> FormattingCommand? {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .numericPad, .function])
+        guard flags == [.command, .option] else { return nil }
+        // Key codes for the top-row digits (layout-independent)
+        let levels: [UInt16: Int] = [18: 1, 19: 2, 20: 3, 21: 4, 23: 5, 22: 6]
+        if let level = levels[event.keyCode] { return .heading(level: level) }
+        if event.keyCode == 29 { return .removeHeading }
+        return nil
     }
 
     /// +1 / -1 for Safari's next/previous tab shortcuts, nil otherwise.
