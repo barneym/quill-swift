@@ -313,8 +313,15 @@ enum PreviewScripts {
                 var display = k.closest('.katex-display');
                 k.replaceWith(document.createTextNode(tex ? (display ? '$$' + tex.textContent + '$$' : '$' + tex.textContent + '$') : k.textContent));
             });
+            // Checklist items keep their markdown marker as text ([ ], [x], [/], …):
+            // no editor makes native checkboxes from pasted HTML, and markers survive
             root.querySelectorAll('input[type="checkbox"]').forEach(function(box) {
-                box.replaceWith(document.createTextNode(box.checked ? '☑ ' : '☐ '));
+                box.replaceWith(document.createTextNode(box.hasAttribute('checked') ? '[x] ' : '[ ] '));
+            });
+            root.querySelectorAll('.checkbox-symbol').forEach(function(symbol) {
+                var item = symbol.closest('[data-checkbox-id]');
+                var id = item ? item.getAttribute('data-checkbox-id') : '';
+                symbol.replaceWith(document.createTextNode(id ? '[' + id + '] ' : ''));
             });
             root.querySelectorAll('script, style, svg, .mermaid-diagram').forEach(function(el) { el.remove(); });
             // Bottom-up so unwrapping never skips nodes

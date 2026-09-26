@@ -339,8 +339,9 @@ struct HTMLRenderer: MarkupWalker {
     /// Render a standard checkbox list item opener with HTML input element
     private func renderStandardCheckboxListItem(isChecked: Bool, item: ListItem) -> String {
         if cleanHTML {
-            // Plain glyphs survive pasting into rich-text editors; form controls don't
-            return "<li>\(isChecked ? "&#x2611;" : "&#x2610;") "
+            // Keep the markdown marker as text: no editor turns pasted HTML into
+            // native checkboxes, and literal markers survive for scripted fix-ups
+            return "<li>\(isChecked ? "[x]" : "[ ]") "
         }
         let checkedAttr = isChecked ? " checked" : ""
         let status = isChecked ? "complete" : "pending"
@@ -352,7 +353,7 @@ struct HTMLRenderer: MarkupWalker {
     /// Render an extended checkbox list item opener with SF Symbol unicode
     private func renderExtendedCheckboxListItem(checkboxType: CheckboxType, item: ListItem) -> String {
         if cleanHTML {
-            return "<li>\(sfSymbolToUnicode(checkboxType.symbol)) "
+            return "<li>[\(escapeHTML(checkboxType.id))] "
         }
         let color = checkboxType.cssColor(isDark: isDarkTheme)
         let symbol = checkboxType.symbol
