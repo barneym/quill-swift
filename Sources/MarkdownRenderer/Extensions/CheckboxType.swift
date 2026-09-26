@@ -21,6 +21,9 @@ public struct CheckboxType: Codable, Equatable, Hashable, Sendable {
         case icon
         /// A translucent box with a solid border, no icon. Obsidian's `[/]`.
         case tinted
+        /// No box: the whole item becomes a colored speech bubble.
+        /// AnuPpuccin's `[0]`–`[9]`.
+        case speechBubble
     }
 
     /// Text treatment applied to the item's content, mirroring Obsidian.
@@ -57,6 +60,10 @@ public struct CheckboxType: Codable, Equatable, Hashable, Sendable {
     /// Text treatment for the item's content
     public let textStyle: TextStyle?
 
+    /// Second color for a gradient fill (light, dark); speech bubbles 8 and 9
+    public let gradientLight: String?
+    public let gradientDark: String?
+
     // MARK: - Initialization
 
     public init(
@@ -68,7 +75,9 @@ public struct CheckboxType: Codable, Equatable, Hashable, Sendable {
         presentation: Presentation? = nil,
         icon: String? = nil,
         iconSize: String? = nil,
-        textStyle: TextStyle? = nil
+        textStyle: TextStyle? = nil,
+        gradientLight: String? = nil,
+        gradientDark: String? = nil
     ) {
         self.id = id
         self.symbol = symbol
@@ -79,6 +88,8 @@ public struct CheckboxType: Codable, Equatable, Hashable, Sendable {
         self.icon = icon
         self.iconSize = iconSize
         self.textStyle = textStyle
+        self.gradientLight = gradientLight
+        self.gradientDark = gradientDark
     }
 
     /// Generic style for a marker with no registered type. Obsidian treats any
@@ -253,7 +264,7 @@ extension CheckboxType {
             symbol: "star.fill",
             colorLight: "#e49320",
             colorDark: "#f9e2af",
-            name: "Star",
+            name: "Starred",
             presentation: .icon,
             icon: Icons.star
         ),
@@ -313,7 +324,7 @@ extension CheckboxType {
             symbol: "info.circle.fill",
             colorLight: "#2a6ef5",
             colorDark: "#87b0f9",
-            name: "Information",
+            name: "Info",
             presentation: .icon,
             icon: Icons.circleInfo
         ),
@@ -367,13 +378,13 @@ extension CheckboxType {
             presentation: .icon,
             icon: Icons.thumbsUp
         ),
-        // [S] Savings (theme; Catppuccin green)
+        // [S] Amount/Score (theme; Catppuccin green)
         CheckboxType(
             id: "S",
             symbol: "dollarsign.circle.fill",
             colorLight: "#40a02b",
             colorDark: "#a6e3a1",
-            name: "Savings",
+            name: "Amount/Score",
             presentation: .icon,
             icon: Icons.sackDollar
         ),
@@ -449,36 +460,36 @@ extension CheckboxType {
             icon: Icons.clock,
             textStyle: .faint
         ),
-        // [E] Energy Required (snippet; Catppuccin yellow)
+        // [E] Energy/Important (snippet; Catppuccin yellow)
         CheckboxType(
             id: "E",
             symbol: "flame.fill",
             colorLight: "#e49320",
             colorDark: "#f9e2af",
-            name: "Energy Required",
+            name: "Energy/Important",
             presentation: .icon,
             icon: Icons.fire,
             textStyle: .bold
         ),
-        // [P] Paused (snippet; Catppuccin peach)
+        // [P] Priority (snippet; pause icon from the snippet; Catppuccin peach)
         CheckboxType(
             id: "P",
             symbol: "pause.rectangle.fill",
             colorLight: "#fe640b",
             colorDark: "#fab387",
-            name: "Paused",
+            name: "Priority",
             presentation: .filled,
             icon: Icons.pause,
             iconSize: "20%",
             textStyle: .bold
         ),
-        // [F] Focused (snippet; Catppuccin green)
+        // [F] Follow-up (snippet; target icon from the snippet; Catppuccin green)
         CheckboxType(
             id: "F",
             symbol: "scope",
             colorLight: "#40a02b",
             colorDark: "#a6e3a1",
-            name: "Focused",
+            name: "Follow-up",
             presentation: .icon,
             icon: Icons.bullseye
         ),
@@ -501,7 +512,36 @@ extension CheckboxType {
         .cancelled,
         .question,
         .important,
-    ] + obsidianAlternates
+    ] + obsidianAlternates + speechBubbles
+
+    /// AnuPpuccin speech bubbles `[0]`–`[9]` ("interview tagging, stakeholder
+    /// tracking, or sentiment scaling"). Catppuccin Latte / Mocha.
+    public static let speechBubbles: [CheckboxType] = {
+        let palette: [(light: String, dark: String, light2: String?, dark2: String?)] = [
+            ("#d20f39", "#f38ba8", nil, nil),              // 0 red
+            ("#fe640b", "#fab387", nil, nil),              // 1 peach
+            ("#e49320", "#f9e2af", nil, nil),              // 2 yellow
+            ("#40a02b", "#a6e3a1", nil, nil),              // 3 green
+            ("#179299", "#94e2d5", nil, nil),              // 4 teal
+            ("#04a5e5", "#89dceb", nil, nil),              // 5 sky
+            ("#2a6ef5", "#87b0f9", nil, nil),              // 6 blue
+            ("#8839ef", "#cba6f7", nil, nil),              // 7 mauve
+            ("#d20f39", "#f38ba8", "#e49320", "#f9e2af"),  // 8 red → yellow
+            ("#8839ef", "#cba6f7", "#7287fd", "#b4befe")   // 9 mauve → lavender
+        ]
+        return palette.enumerated().map { digit, colors in
+            CheckboxType(
+                id: String(digit),
+                symbol: "bubble.left.fill",
+                colorLight: colors.light,
+                colorDark: colors.dark,
+                name: "Speech Bubble \(digit)",
+                presentation: .speechBubble,
+                gradientLight: colors.light2,
+                gradientDark: colors.dark2
+            )
+        }
+    }()
 }
 
 // MARK: - Icons

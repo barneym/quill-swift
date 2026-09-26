@@ -79,7 +79,7 @@ public struct MarkdownRenderer {
         from markdown: String,
         options: Options = Options()
     ) -> String {
-        let document = Document(parsing: markdown)
+        let document = Document(parsing: protectingTaskMarkers(in: markdown))
         var renderer = HTMLRenderer(
             isDarkTheme: options.isDarkTheme,
             highlightCode: options.highlightCodeBlocks && !options.cleanHTML,
@@ -103,6 +103,55 @@ public struct MarkdownRenderer {
         // Phase 0: Stub implementation
         // TODO(#2): Implement AttributedString rendering
         return AttributedString(markdown)
+    }
+
+    /// Backslash-escape punctuation task markers (`- [*]`, `- [_]`, `- [~]` …)
+    /// so the checkbox rule wins over emphasis and other inline syntax, as in
+    /// Obsidian: in `- [*] foo*` the `*` would otherwise open emphasis. Escaped
+    /// punctuation parses as the literal character, so the checkbox reads the
+    /// same. Fenced code is left alone, and only characters are inserted within
+    /// lines, so line numbers (scroll sync) are unchanged.
+    static func protectingTaskMarkers(in markdown: String) -> String {
+        guard markdown.contains("]") else { return markdown }
+        var output: [Substring] = []
+        var fence: (char: Character, length: Int)?
+        for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = line.drop { $0 == " " || $0 == "\t" }
+            let indent = line.count - trimmed.count
+            if let open = fence {
+                let run = trimmed.prefix { $0 == open.char }
+                if indent <= 3, run.count >= open.length,
+                   trimmed.dropFirst(run.count).allSatisfy({ $0.isWhitespace }) {
+                    fence = nil
+                }
+                output.append(line)
+                continue
+            }
+            if indent <= 3, let first = trimmed.first, first == "`" || first == "~" {
+                let run = trimmed.prefix { $0 == first }
+                if run.count >= 3 {
+                    fence = (first, run.count)
+                    output.append(line)
+                    continue
+                }
+            }
+            output.append(Self.escapingTaskMarker(in: line))
+        }
+        return output.joined(separator: "\n")
+    }
+
+    private static let taskMarkerPattern = try! NSRegularExpression(
+        pattern: #"^((?:[ \t]*>[ \t]?)*[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+)\[([!-/:-@^-`{-~])\](?=[ \t]|$)"#
+    )
+
+    private static func escapingTaskMarker(in line: Substring) -> Substring {
+        let text = String(line)
+        let range = NSRange(text.startIndex..., in: text)
+        guard let match = taskMarkerPattern.firstMatch(in: text, range: range),
+              let markerRange = Range(match.range(at: 2), in: text) else {
+            return line
+        }
+        return Substring(text[..<markerRange.lowerBound] + "\\" + text[markerRange.lowerBound...])
     }
 
     /// Parse markdown to AST without rendering

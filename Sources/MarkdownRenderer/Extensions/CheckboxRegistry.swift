@@ -292,9 +292,30 @@ extension CheckboxRegistry {
         case .tinted:
             box = "background-color: \(rgba(color, alpha: 0.3)); border-color: \(color);"
             after = "display: none;"
+        case .speechBubble:
+            box = ""  // styled below: the item is the bubble
+            after = ""
         case nil:
             box = "background-color: transparent; border-color: \(color);"
             after = "display: none;"
+        }
+
+        if checkbox.presentation == .speechBubble {
+            // The item itself is the bubble; the checkbox is hidden (AnuPpuccin)
+            let alpha = isDark ? 0.9 : 0.5
+            var fill = rgba(color, alpha: alpha)
+            if let second = isDark ? checkbox.gradientDark : checkbox.gradientLight {
+                fill = "linear-gradient(to right, \(fill), \(rgba(second, alpha: alpha)))"
+            }
+            let text = isDark ? "color: var(--qs-color-background);" : ""
+            return """
+            \(item) { background: \(fill); padding: 3px 10px; border-radius: 3px 10px 10px 10px; \
+            width: fit-content; max-width: 100%; margin-left: -1.25em; margin-bottom: 0.3em; \(text) }
+            \(item) > .checkbox-symbol, \(item) > p:first-child > .checkbox-symbol { display: none; }
+            \(item) > p { margin: 0; }
+            \(item) code { color: inherit; background-color: rgba(127, 127, 127, 0.22); }
+
+            """
         }
 
         // Child combinators: a nested item's symbol must not pick up its parent's type
