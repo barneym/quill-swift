@@ -37,6 +37,20 @@ public struct MarkdownRenderer {
         /// When true, inline HTML and HTML blocks are rendered as-is
         public var allowRawHTML: Bool = true
 
+        /// Annotate block elements with `data-line` / `data-line-end` attributes
+        /// holding their 0-based source line span (default: false).
+        /// Used by the preview for source ↔ preview scroll synchronization.
+        public var includeSourceLines: Bool = false
+
+        /// Produce minimal, presentation-free HTML (default: false).
+        ///
+        /// Intended for clipboard use, where rich-text editors (Google Docs, etc.)
+        /// honor any styling they find. Emits only the structural tags a markdown
+        /// construct implies: no classes, inline styles, syntax-highlighting spans,
+        /// or form controls. Code blocks are a bare `<pre><code>` so the target
+        /// editor picks its own fixed-width font. Implies `highlightCodeBlocks = false`.
+        public var cleanHTML: Bool = false
+
         public init() {}
     }
 
@@ -64,8 +78,10 @@ public struct MarkdownRenderer {
         let document = Document(parsing: markdown)
         var renderer = HTMLRenderer(
             isDarkTheme: options.isDarkTheme,
-            highlightCode: options.highlightCodeBlocks,
-            allowRawHTML: options.allowRawHTML
+            highlightCode: options.highlightCodeBlocks && !options.cleanHTML,
+            allowRawHTML: options.allowRawHTML,
+            includeSourceLines: options.includeSourceLines && !options.cleanHTML,
+            cleanHTML: options.cleanHTML
         )
         return renderer.render(document)
     }
@@ -109,13 +125,27 @@ struct HTMLRenderer: MarkupWalker {
     /// Whether to allow raw HTML pass-through
     let allowRawHTML: Bool
 
+    /// Whether to emit data-line attributes for scroll sync
+    let includeSourceLines: Bool
+
+    /// Whether to emit minimal, presentation-free HTML
+    let cleanHTML: Bool
+
     // Track current table's column alignments for cell rendering
     private var currentTableAlignments: [Table.ColumnAlignment?] = []
 
-    init(isDarkTheme: Bool = false, highlightCode: Bool = true, allowRawHTML: Bool = true) {
+    init(
+        isDarkTheme: Bool = false,
+        highlightCode: Bool = true,
+        allowRawHTML: Bool = true,
+        includeSourceLines: Bool = false,
+        cleanHTML: Bool = false
+    ) {
         self.isDarkTheme = isDarkTheme
         self.highlightCode = highlightCode
         self.allowRawHTML = allowRawHTML
+        self.includeSourceLines = includeSourceLines
+        self.cleanHTML = cleanHTML
     }
 
     mutating func render(_ document: Document) -> String {
@@ -130,15 +160,41 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     mutating func visitHeading(_ heading: Heading) -> () {
-        html += "<h\(heading.level)>"
+        html += "<h\(heading.level)\(lineAttributes(heading))>"
         descendInto(heading)
         html += "</h\(heading.level)>\n"
     }
 
     mutating func visitParagraph(_ paragraph: Paragraph) -> () {
-        html += "<p>"
+        // CommonMark: paragraphs in tight list items render without <p> tags
+        if let item = paragraph.parent as? ListItem, let list = item.parent, Self.isTightList(list) {
+            descendInto(paragraph)
+            if paragraph.indexInParent < item.childCount - 1 {
+                html += "\n"
+            }
+            return
+        }
+        html += "<p\(lineAttributes(paragraph))>"
         descendInto(paragraph)
         html += "</p>\n"
+    }
+
+    /// A list is loose if any of its items, or any blocks inside an item,
+    /// are separated by a blank line (CommonMark §5.3).
+    static func isTightList(_ list: Markup) -> Bool {
+        func separatedByBlankLine(_ children: [Markup]) -> Bool {
+            zip(children, children.dropFirst()).contains { previous, next in
+                guard let end = previous.range?.upperBound, let start = next.range?.lowerBound else {
+                    return false
+                }
+                // A range ending at column 1 stops before that line's content
+                let lastLine = end.column <= 1 ? end.line - 1 : end.line
+                return start.line > lastLine + 1
+            }
+        }
+        let items = Array(list.children)
+        if separatedByBlankLine(items) { return false }
+        return !items.contains { separatedByBlankLine(Array($0.children)) }
     }
 
     mutating func visitText(_ text: Text) -> () {
@@ -166,10 +222,10 @@ struct HTMLRenderer: MarkupWalker {
         let code = codeBlock.code
 
         // Build the opening tag
-        if language.isEmpty {
-            html += "<pre><code>"
+        if language.isEmpty || cleanHTML {
+            html += "<pre\(lineAttributes(codeBlock))><code>"
         } else {
-            html += "<pre><code class=\"language-\(escapeHTML(language))\">"
+            html += "<pre\(lineAttributes(codeBlock))><code class=\"language-\(escapeHTML(language))\">"
         }
 
         // Apply syntax highlighting if enabled
@@ -198,13 +254,20 @@ struct HTMLRenderer: MarkupWalker {
         let alt = escapeHTML(image.plainText)
         let title = image.title.map { " title=\"\(escapeHTML($0))\"" } ?? ""
 
+        if cleanHTML {
+            html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title)>"
+            return
+        }
+
         // Add responsive class for proper sizing in preview
-        // CSS should handle max-width: 100% and proper table cell fitting
-        html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title) class=\"md-image\" loading=\"lazy\">"
+        // CSS should handle max-width: 100% and proper table cell fitting.
+        // Images load eagerly: lazy loading leaves off-screen images at zero
+        // height, which shifts layout after scroll sync has positioned the view.
+        html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title) class=\"md-image\">"
     }
 
     mutating func visitUnorderedList(_ list: UnorderedList) -> () {
-        html += "<ul>\n"
+        html += "<ul\(lineAttributes(list))>\n"
         descendInto(list)
         html += "</ul>\n"
     }
@@ -212,7 +275,7 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitOrderedList(_ list: OrderedList) -> () {
         // Include start attribute if list doesn't start at 1
         let startAttr = list.startIndex != 1 ? " start=\"\(list.startIndex)\"" : ""
-        html += "<ol\(startAttr)>\n"
+        html += "<ol\(startAttr)\(lineAttributes(list))>\n"
         descendInto(list)
         html += "</ol>\n"
     }
@@ -222,18 +285,18 @@ struct HTMLRenderer: MarkupWalker {
         if let checkbox = item.checkbox {
             // Standard checkboxes use HTML input elements
             let isChecked = checkbox == .checked
-            html += renderStandardCheckboxListItem(isChecked: isChecked)
+            html += renderStandardCheckboxListItem(isChecked: isChecked, item: item)
             descendInto(item)
             html += "</li>\n"
         } else if let customCheckbox = parseExtendedCheckbox(from: item) {
             // Handle extended checkbox syntax [/], [-], [?], [!], etc.
             // Extended checkboxes use SF Symbol unicode fallbacks
-            html += renderExtendedCheckboxListItem(checkboxType: customCheckbox.type)
+            html += renderExtendedCheckboxListItem(checkboxType: customCheckbox.type, item: item)
             // Render content without the checkbox marker
             renderListItemContentWithoutCheckbox(item, markerLength: customCheckbox.markerLength)
             html += "</li>\n"
         } else {
-            html += "<li>"
+            html += "<li\(lineAttributes(item))>"
             descendInto(item)
             html += "</li>\n"
         }
@@ -274,16 +337,23 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     /// Render a standard checkbox list item opener with HTML input element
-    private func renderStandardCheckboxListItem(isChecked: Bool) -> String {
+    private func renderStandardCheckboxListItem(isChecked: Bool, item: ListItem) -> String {
+        if cleanHTML {
+            // Plain glyphs survive pasting into rich-text editors; form controls don't
+            return "<li>\(isChecked ? "&#x2611;" : "&#x2610;") "
+        }
         let checkedAttr = isChecked ? " checked" : ""
         let status = isChecked ? "complete" : "pending"
         return """
-        <li class="task-list-item" data-checkbox-status="\(status)"><input type="checkbox" class="task-checkbox"\(checkedAttr) disabled>
+        <li class="task-list-item" data-checkbox-status="\(status)"\(lineAttributes(item))><input type="checkbox" class="task-checkbox"\(checkedAttr) disabled>
         """
     }
 
     /// Render an extended checkbox list item opener with SF Symbol unicode
-    private func renderExtendedCheckboxListItem(checkboxType: CheckboxType) -> String {
+    private func renderExtendedCheckboxListItem(checkboxType: CheckboxType, item: ListItem) -> String {
+        if cleanHTML {
+            return "<li>\(sfSymbolToUnicode(checkboxType.symbol)) "
+        }
         let color = checkboxType.cssColor(isDark: isDarkTheme)
         let symbol = checkboxType.symbol
         let name = escapeHTML(checkboxType.name)
@@ -292,7 +362,7 @@ struct HTMLRenderer: MarkupWalker {
         let symbolDisplay = sfSymbolToUnicode(symbol)
 
         return """
-        <li class="task-list-item extended-checkbox" data-checkbox-id="\(escapeHTML(checkboxType.id))" title="\(name)"><span class="checkbox-symbol" style="color: \(color);">\(symbolDisplay)</span>
+        <li class="task-list-item extended-checkbox" data-checkbox-id="\(escapeHTML(checkboxType.id))" title="\(name)"\(lineAttributes(item))><span class="checkbox-symbol" style="color: \(color);">\(symbolDisplay)</span>
         """
     }
 
@@ -340,13 +410,13 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     mutating func visitBlockQuote(_ blockQuote: BlockQuote) -> () {
-        html += "<blockquote>\n"
+        html += "<blockquote\(lineAttributes(blockQuote))>\n"
         descendInto(blockQuote)
         html += "</blockquote>\n"
     }
 
     mutating func visitThematicBreak(_ break: ThematicBreak) -> () {
-        html += "<hr>\n"
+        html += "<hr\(lineAttributes(`break`))>\n"
     }
 
     mutating func visitSoftBreak(_ softBreak: SoftBreak) -> () {
@@ -362,14 +432,14 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitTable(_ table: Table) -> () {
         // Store column alignments for use in visitTableCell
         currentTableAlignments = table.columnAlignments
-        html += "<table>\n"
+        html += "<table\(lineAttributes(table))>\n"
         descendInto(table)
         html += "</table>\n"
         currentTableAlignments = []
     }
 
     mutating func visitTableHead(_ tableHead: Table.Head) -> () {
-        html += "<thead>\n<tr>\n"
+        html += "<thead>\n<tr\(lineAttributes(tableHead))>\n"
         descendInto(tableHead)
         html += "</tr>\n</thead>\n"
     }
@@ -381,7 +451,7 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     mutating func visitTableRow(_ tableRow: Table.Row) -> () {
-        html += "<tr>\n"
+        html += "<tr\(lineAttributes(tableRow))>\n"
         descendInto(tableRow)
         html += "</tr>\n"
     }
@@ -444,6 +514,17 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     // MARK: - Helpers
+
+    /// ` data-line="…" data-line-end="…"` for a block's 0-based source line span,
+    /// or an empty string when source lines are disabled or unknown.
+    private func lineAttributes(_ markup: Markup) -> String {
+        guard includeSourceLines, let range = markup.range else { return "" }
+        let start = range.lowerBound.line - 1
+        // A range ending at column 1 stops before that line's first character
+        let endLine = range.upperBound.column <= 1 ? range.upperBound.line - 1 : range.upperBound.line
+        let end = max(start, endLine - 1)
+        return " data-line=\"\(start)\" data-line-end=\"\(end)\""
+    }
 
     private func escapeHTML(_ string: String) -> String {
         string

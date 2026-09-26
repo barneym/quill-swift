@@ -44,6 +44,9 @@ struct PreviewView: NSViewRepresentable {
     /// Enable Math/LaTeX rendering
     var enableMath: Bool = false
 
+    /// Called after each page load completes (scroll sync, find re-run)
+    var onLoadFinished: ((WKWebView) -> Void)?
+
     // MARK: - NSViewRepresentable
 
     func makeNSView(context: Context) -> WKWebView {
@@ -59,6 +62,13 @@ struct PreviewView: NSViewRepresentable {
         // Add script message handler for checkbox toggling
         let contentController = configuration.userContentController
         contentController.add(context.coordinator, name: "checkboxToggle")
+
+        // Page helpers: scroll sync, in-page find, and clean clipboard HTML
+        for script in [ScrollSync.previewScript, PreviewScripts.find, PreviewScripts.cleanCopy] {
+            contentController.addUserScript(
+                WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            )
+        }
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
 
@@ -78,8 +88,9 @@ struct PreviewView: NSViewRepresentable {
         // Store reference in coordinator for scroll sync
         context.coordinator.webView = webView
 
-        // Store the checkbox callback
+        // Store the callbacks
         context.coordinator.onCheckboxToggle = onCheckboxToggle
+        context.coordinator.onLoadFinished = onLoadFinished
 
         // Notify parent of webView for scroll sync
         DispatchQueue.main.async {
@@ -90,6 +101,9 @@ struct PreviewView: NSViewRepresentable {
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
+        context.coordinator.onCheckboxToggle = onCheckboxToggle
+        context.coordinator.onLoadFinished = onLoadFinished
+
         let fullHTML = theme.wrapHTML(
             html,
             fontSize: fontSize,
@@ -138,6 +152,9 @@ struct PreviewView: NSViewRepresentable {
         /// Callback for checkbox toggle events
         var onCheckboxToggle: ((Int, Bool) -> Void)?
 
+        /// Callback after a page load completes
+        var onLoadFinished: ((WKWebView) -> Void)?
+
         // MARK: - WKScriptMessageHandler
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -166,6 +183,7 @@ struct PreviewView: NSViewRepresentable {
                     self?.pendingScrollOffset = nil
                 }
             }
+            onLoadFinished?(webView)
         }
 
         /// Handle link clicks - open external links in default browser
