@@ -58,7 +58,7 @@ final class RendererTests: XCTestCase {
 
     func testImage() {
         let html = MarkdownRenderer.renderHTML(from: "![Alt](image.png)")
-        XCTAssertTrue(html.contains("<img src=\"image.png\" alt=\"Alt\">"))
+        XCTAssertTrue(html.contains("<img src=\"image.png\" alt=\"Alt\""), html)
     }
 
     // MARK: - Lists
@@ -136,5 +136,96 @@ final class RendererTests: XCTestCase {
         let document = MarkdownRenderer.parse("# Hello\n\nWorld")
         // Just verify it doesn't crash and returns a document
         XCTAssertNotNil(document)
+    }
+}
+
+// MARK: - Obsidian Checkboxes
+
+final class CheckboxRenderingTests: XCTestCase {
+
+    private func render(_ markdown: String) -> String {
+        MarkdownRenderer.renderHTML(from: markdown)
+    }
+
+    func testRegisteredAlternateCheckboxesRenderWithDataTask() {
+        let cases: [(id: String, name: String)] = [
+            ("W", "Waiting"), ("D", "Delegated"), ("F", "Focused"), ("b", "Bookmark"),
+            (">", "Rescheduled"), ("<", "Scheduled"), ("*", "Star"), ("s", "Someday/Maybe"),
+        ]
+        for (id, name) in cases {
+            let html = render("- [\(id)] item text")
+            let escaped = id.replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
+            XCTAssertTrue(html.contains("class=\"task-list-item extended-checkbox\""), "\(id): \(html)")
+            XCTAssertTrue(html.contains("data-task=\"\(escaped)\""), "\(id): \(html)")
+            XCTAssertTrue(html.contains("data-checkbox-id=\"\(escaped)\""), "\(id): \(html)")
+            XCTAssertTrue(html.contains("title=\"\(name)\""), "\(id): \(html)")
+            XCTAssertTrue(html.contains("<span class=\"checkbox-symbol\"></span>item text</li>"), "\(id): \(html)")
+            XCTAssertFalse(html.contains("[\(escaped)]"), "marker must not leak: \(html)")
+            XCTAssertFalse(html.contains("style="), "CSS owns presentation: \(html)")
+        }
+    }
+
+    func testQuoteMarkerIsEscaped() {
+        let html = render("- [\"] quoted")
+        XCTAssertTrue(html.contains("data-task=\"&quot;\""), html)
+        XCTAssertTrue(html.contains("title=\"Quote\""), html)
+    }
+
+    func testUnknownMarkerRendersAsGenericCheckbox() {
+        let html = render("- [z] something\n- [7] speech")
+        XCTAssertTrue(html.contains("data-task=\"z\""), html)
+        XCTAssertTrue(html.contains("data-task=\"7\""), html)
+        XCTAssertTrue(html.contains("<span class=\"checkbox-symbol\"></span>something</li>"), html)
+        XCTAssertFalse(html.contains("[z] something"), html)
+        XCTAssertTrue(html.contains("title=\"Custom [z]\""), html)
+    }
+
+    func testStandardCheckboxesKeepInputPath() {
+        let html = render("- [ ] todo\n- [x] done\n- [X] also done\n- [b] bookmark")
+        XCTAssertEqual(html.components(separatedBy: "<input type=\"checkbox\" class=\"task-checkbox\"").count - 1, 3, html)
+        XCTAssertTrue(html.contains("data-task=\" \" data-checkbox-status=\"pending\""), html)
+        XCTAssertTrue(html.contains("data-task=\"x\" data-checkbox-status=\"complete\""), html)
+        // Extended items carry no <input>, so the preview's click index stays aligned
+        let extended = html.components(separatedBy: "extended-checkbox").dropFirst().joined()
+        XCTAssertFalse(extended.contains("<input"), html)
+    }
+
+    func testNonMarkersAreLeftAlone() {
+        XCTAssertFalse(render("- [b](https://example.com) link").contains("extended-checkbox"))
+        XCTAssertFalse(render("- [ab] two chars").contains("extended-checkbox"))
+        XCTAssertFalse(render("- [b]no space").contains("extended-checkbox"))
+        XCTAssertFalse(render("[b] not a list").contains("extended-checkbox"))
+    }
+
+    func testMarkerSplitAcrossTextNodesKeepsInlineContent() {
+        let html = render("- [*] a **bold** star")
+        XCTAssertTrue(html.contains("<span class=\"checkbox-symbol\"></span>a <strong>bold</strong> star</li>"), html)
+    }
+
+    func testLooseExtendedItemKeepsParagraph() {
+        let html = render("- [!] first\n\n- [?] second")
+        XCTAssertTrue(html.contains("<p><span class=\"checkbox-symbol\"></span>first</p>"), html)
+    }
+
+    func testRegistryResolvesMarkers() {
+        let registry = CheckboxRegistry.shared
+        XCTAssertEqual(registry.resolvedType(forMarker: "X").id, "x")
+        XCTAssertEqual(registry.resolvedType(forMarker: "M").name, "Meeting")
+        XCTAssertEqual(registry.resolvedType(forMarker: "q").presentation, .filled)
+        for id in ["-", "!", "?", "*", "/", "<", ">", "\"", "b", "c", "d", "f", "i", "I", "k", "l", "n", "p", "S", "u", "w",
+                   "W", "D", "R", "M", "s", "E", "P", "F", "H"] {
+            XCTAssertNotNil(registry.type(forId: id), "missing \(id)")
+        }
+    }
+
+    func testStylesheetHasRulePerTypeInBothAppearances() {
+        let light = CheckboxRegistry.shared.stylesheet(isDark: false)
+        let dark = CheckboxRegistry.shared.stylesheet(isDark: true)
+        XCTAssertTrue(light.contains(".task-list-item.extended-checkbox[data-task=\"W\"] > .checkbox-symbol::after"), light)
+        XCTAssertTrue(light.contains(".task-list-item.extended-checkbox[data-task=\"\\\"\"]"), light)
+        XCTAssertTrue(light.contains("#d20f39"), "Latte red")
+        XCTAssertTrue(dark.contains("#f38ba8"), "Mocha red")
+        XCTAssertTrue(light.contains("url(\"data:image/svg+xml,%3Csvg"), light)
+        XCTAssertFalse(light.contains("<svg"), "SVG must be URL-encoded")
     }
 }

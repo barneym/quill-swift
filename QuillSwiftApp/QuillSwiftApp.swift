@@ -218,6 +218,12 @@ struct QuillSwiftApp: App {
                     performFormattingCommand(.codeBlock)
                 }
                 .keyboardShortcut("`", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Convert HTML Images to Markdown") {
+                    performFormattingCommand(.convertHTMLImages)
+                }
             }
 
             HistoryCommands()

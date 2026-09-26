@@ -33,9 +33,13 @@ public struct MarkdownRenderer {
         /// Enable syntax highlighting for code blocks (default: true)
         public var highlightCodeBlocks: Bool = true
 
-        /// Allow raw HTML in markdown (default: true for editor preview)
-        /// When true, inline HTML and HTML blocks are rendered as-is
+        /// Allow raw HTML in markdown (default: true). When false, raw HTML is
+        /// removed entirely; when true, it is rendered per `rawHTMLPolicy`.
         public var allowRawHTML: Bool = true
+
+        /// How allowed raw HTML is rendered (default: `.safe`, an allowlist of
+        /// harmless tags — no scripts, styles, frames, forms or event handlers)
+        public var rawHTMLPolicy: RawHTMLPolicy = .safe
 
         /// Annotate block elements with `data-line` / `data-line-end` attributes
         /// holding their 0-based source line span (default: false).
@@ -79,7 +83,7 @@ public struct MarkdownRenderer {
         var renderer = HTMLRenderer(
             isDarkTheme: options.isDarkTheme,
             highlightCode: options.highlightCodeBlocks && !options.cleanHTML,
-            allowRawHTML: options.allowRawHTML,
+            rawHTMLPolicy: options.allowRawHTML ? options.rawHTMLPolicy : .strip,
             includeSourceLines: options.includeSourceLines && !options.cleanHTML,
             cleanHTML: options.cleanHTML
         )
@@ -123,7 +127,7 @@ struct HTMLRenderer: MarkupWalker {
     let highlightCode: Bool
 
     /// Whether to allow raw HTML pass-through
-    let allowRawHTML: Bool
+    let rawHTMLPolicy: RawHTMLPolicy
 
     /// Whether to emit data-line attributes for scroll sync
     let includeSourceLines: Bool
@@ -137,13 +141,13 @@ struct HTMLRenderer: MarkupWalker {
     init(
         isDarkTheme: Bool = false,
         highlightCode: Bool = true,
-        allowRawHTML: Bool = true,
+        rawHTMLPolicy: RawHTMLPolicy = .safe,
         includeSourceLines: Bool = false,
         cleanHTML: Bool = false
     ) {
         self.isDarkTheme = isDarkTheme
         self.highlightCode = highlightCode
-        self.allowRawHTML = allowRawHTML
+        self.rawHTMLPolicy = rawHTMLPolicy
         self.includeSourceLines = includeSourceLines
         self.cleanHTML = cleanHTML
     }
@@ -244,18 +248,23 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     mutating func visitLink(_ link: Link) -> () {
-        html += "<a href=\"\(escapeHTML(link.destination ?? ""))\">"
+        let destination = link.destination ?? ""
+        // Unsafe schemes (javascript:, data:, …) lose their href but keep their text
+        html += HTMLSanitizer.isSafeURL(destination) ? "<a href=\"\(escapeHTML(destination))\">" : "<a>"
         descendInto(link)
         html += "</a>"
     }
 
     mutating func visitImage(_ image: Image) -> () {
-        let src = escapeHTML(image.source ?? "")
-        let alt = escapeHTML(image.plainText)
+        let source = image.source ?? ""
+        let src = HTMLSanitizer.isSafeURL(source, allowImageData: true) ? escapeHTML(source) : ""
+        let (altText, size) = Self.splitObsidianSize(image.plainText)
+        let alt = escapeHTML(altText)
         let title = image.title.map { " title=\"\(escapeHTML($0))\"" } ?? ""
+        let sizeAttributes = (size.width.map { " width=\"\($0)\"" } ?? "") + (size.height.map { " height=\"\($0)\"" } ?? "")
 
         if cleanHTML {
-            html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title)>"
+            html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title)\(sizeAttributes)>"
             return
         }
 
@@ -263,7 +272,22 @@ struct HTMLRenderer: MarkupWalker {
         // CSS should handle max-width: 100% and proper table cell fitting.
         // Images load eagerly: lazy loading leaves off-screen images at zero
         // height, which shifts layout after scroll sync has positioned the view.
-        html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title) class=\"md-image\">"
+        html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title)\(sizeAttributes) class=\"md-image\">"
+    }
+
+    /// Obsidian image size syntax: `![alt|300](src)` or `![alt|300x200](src)`.
+    static func splitObsidianSize(_ alt: String) -> (alt: String, size: (width: Int?, height: Int?)) {
+        guard let bar = alt.lastIndex(of: "|") else { return (alt, (nil, nil)) }
+        let spec = alt[alt.index(after: bar)...].trimmingCharacters(in: .whitespaces)
+        let parts = spec.split(separator: "x", omittingEmptySubsequences: false)
+        guard (1...2).contains(parts.count), let width = Int(parts[0]), width >= 0 else { return (alt, (nil, nil)) }
+        var height: Int?
+        if parts.count == 2 {
+            guard let value = Int(parts[1]) else { return (alt, (nil, nil)) }
+            height = value
+        }
+        let text = String(alt[..<bar]).trimmingCharacters(in: .whitespaces)
+        return (text, (width > 0 ? width : nil, height))
     }
 
     mutating func visitUnorderedList(_ list: UnorderedList) -> () {
@@ -283,17 +307,17 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitListItem(_ item: ListItem) -> () {
         // Check for built-in checkbox first (standard [ ] and [x] syntax)
         if let checkbox = item.checkbox {
-            // Standard checkboxes use HTML input elements
+            // Standard checkboxes use HTML input elements (the preview makes them
+            // clickable; ContentView.toggleCheckboxInSource counts the same set)
             let isChecked = checkbox == .checked
             html += renderStandardCheckboxListItem(isChecked: isChecked, item: item)
             descendInto(item)
             html += "</li>\n"
-        } else if let customCheckbox = parseExtendedCheckbox(from: item) {
-            // Handle extended checkbox syntax [/], [-], [?], [!], etc.
-            // Extended checkboxes use SF Symbol unicode fallbacks
-            html += renderExtendedCheckboxListItem(checkboxType: customCheckbox.type, item: item)
-            // Render content without the checkbox marker
-            renderListItemContentWithoutCheckbox(item, markerLength: customCheckbox.markerLength)
+        } else if let extended = parseExtendedCheckbox(from: item) {
+            // Obsidian-style alternate checkbox: [/], [-], [?], [b], ... or any
+            // other single character (Obsidian treats every `[c]` as a task)
+            html += renderExtendedCheckboxListItem(checkboxType: extended.type, item: item)
+            renderListItemContentWithoutCheckbox(item, markerLength: extended.markerLength)
             html += "</li>\n"
         } else {
             html += "<li\(lineAttributes(item))>"
@@ -302,111 +326,120 @@ struct HTMLRenderer: MarkupWalker {
         }
     }
 
-    /// Parse extended checkbox syntax from list item content
+    /// Parse an extended checkbox marker (`[c] ` for any single character `c`
+    /// other than the standard ` `, `x`, `X`) at the start of a list item.
     private func parseExtendedCheckbox(from item: ListItem) -> (type: CheckboxType, markerLength: Int)? {
-        // Get the plain text of the first inline element
-        guard let firstChild = item.children.first(where: { $0 is Paragraph }) as? Paragraph,
-              let text = firstChild.children.first(where: { $0 is Text }) as? Text else {
+        guard let paragraph = item.child(at: 0) as? Paragraph else { return nil }
+
+        // The parser can split "[*] " across several Text nodes (brackets and
+        // emphasis delimiters become separate nodes), so join the leading text
+        var prefix = ""
+        for inline in paragraph.children {
+            guard let text = inline as? Text else { break }
+            prefix += text.string
+            if prefix.count >= 4 { break }
+        }
+
+        let chars = Array(prefix.prefix(4))
+        guard chars.count >= 3, chars[0] == "[", chars[2] == "]" else { return nil }
+        let markerLength: Int
+        if chars.count == 4 {
+            guard chars[3] == " " else { return nil }
+            markerLength = 4
+        } else {
+            // A bare "- [c]" with no text after it
+            guard paragraph.childCount == 1 else { return nil }
+            markerLength = 3
+        }
+
+        var marker = chars[1]
+        // Smart punctuation turns `["]` into `[”]`; map curly quotes back to the
+        // markdown characters (Obsidian's `"` Quote type)
+        switch marker {
+        case "\u{201C}", "\u{201D}": marker = "\""
+        case "\u{2018}", "\u{2019}": marker = "'"
+        default: break
+        }
+        // Standard checkboxes are handled by swift-markdown; skip whitespace/brackets
+        if marker == "x" || marker == "X" || marker.isWhitespace || marker == "[" || marker == "]" {
             return nil
         }
 
-        let content = text.string
-
-        // Check for extended checkbox pattern: [X] where X is not 'x' or ' '
-        // Pattern: starts with [, single character, ] followed by space
-        guard content.count >= 4,
-              content.hasPrefix("["),
-              content[content.index(content.startIndex, offsetBy: 2)] == "]",
-              content[content.index(content.startIndex, offsetBy: 3)] == " " else {
-            return nil
-        }
-
-        let checkboxChar = String(content[content.index(content.startIndex, offsetBy: 1)])
-
-        // Skip standard checkboxes (handled by swift-markdown)
-        if checkboxChar == "x" || checkboxChar == "X" || checkboxChar == " " {
-            return nil
-        }
-
-        // Look up the checkbox type
-        guard let checkboxType = CheckboxRegistry.shared.type(forId: checkboxChar) else {
-            return nil
-        }
-
-        return (type: checkboxType, markerLength: 4) // "[X] " = 4 characters
+        return (CheckboxRegistry.shared.resolvedType(forMarker: String(marker)), markerLength)
     }
 
     /// Render a standard checkbox list item opener with HTML input element
     private func renderStandardCheckboxListItem(isChecked: Bool, item: ListItem) -> String {
         if cleanHTML {
-            // Plain glyphs survive pasting into rich-text editors; form controls don't
-            return "<li>\(isChecked ? "&#x2611;" : "&#x2610;") "
+            // Keep the markdown marker as text: no editor turns pasted HTML into
+            // native checkboxes, and literal markers survive for scripted fix-ups
+            return "<li>\(isChecked ? "[x]" : "[ ]") "
         }
         let checkedAttr = isChecked ? " checked" : ""
         let status = isChecked ? "complete" : "pending"
+        let task = isChecked ? "x" : " "
         return """
-        <li class="task-list-item" data-checkbox-status="\(status)"\(lineAttributes(item))><input type="checkbox" class="task-checkbox"\(checkedAttr) disabled>
+        <li class="task-list-item" data-task="\(task)" data-checkbox-status="\(status)"\(lineAttributes(item))><input type="checkbox" class="task-checkbox"\(checkedAttr) disabled>
         """
     }
 
-    /// Render an extended checkbox list item opener with SF Symbol unicode
+    /// Render an extended checkbox list item opener (the `.checkbox-symbol` span
+    /// is emitted with the content). Presentation (icon, color)
+    /// comes from CSS keyed on `data-task` (see `CheckboxRegistry.stylesheet`).
     private func renderExtendedCheckboxListItem(checkboxType: CheckboxType, item: ListItem) -> String {
+        let id = escapeHTML(checkboxType.id)
         if cleanHTML {
-            return "<li>\(sfSymbolToUnicode(checkboxType.symbol)) "
+            return "<li>[\(id)] "
         }
-        let color = checkboxType.cssColor(isDark: isDarkTheme)
-        let symbol = checkboxType.symbol
         let name = escapeHTML(checkboxType.name)
-
-        // Use SF Symbol image tag with fallback unicode
-        let symbolDisplay = sfSymbolToUnicode(symbol)
-
         return """
-        <li class="task-list-item extended-checkbox" data-checkbox-id="\(escapeHTML(checkboxType.id))" title="\(name)"\(lineAttributes(item))><span class="checkbox-symbol" style="color: \(color);">\(symbolDisplay)</span>
+        <li class="task-list-item extended-checkbox" data-task="\(id)" data-checkbox-id="\(id)" title="\(name)"\(lineAttributes(item))>
         """
     }
 
-    /// Render list item content, skipping the checkbox marker
+    /// Render list item content, skipping the checkbox marker at the start of
+    /// the first paragraph (which may span several leading Text nodes)
     private mutating func renderListItemContentWithoutCheckbox(_ item: ListItem, markerLength: Int) {
-        // We need to render children but skip the first N characters of the first text node
         for child in item.children {
-            if let paragraph = child as? Paragraph {
-                var isFirst = true
-                for inline in paragraph.children {
-                    if isFirst, let text = inline as? Text {
-                        // Skip the checkbox marker
-                        let content = text.string
-                        if content.count > markerLength {
-                            let remaining = String(content.dropFirst(markerLength))
-                            html += escapeHTML(remaining)
-                        }
-                        isFirst = false
+            guard child.indexInParent == 0, let paragraph = child as? Paragraph else {
+                visit(child)
+                continue
+            }
+
+            let isTight = item.parent.map(Self.isTightList) ?? true
+            if !isTight {
+                html += "<p\(lineAttributes(paragraph))>"
+            }
+            // The symbol goes inside the first paragraph so it stays on the text's
+            // line in loose lists too (clean HTML emitted the literal marker instead)
+            if !cleanHTML {
+                html += "<span class=\"checkbox-symbol\"></span>"
+            }
+
+            var remaining = markerLength
+            for inline in paragraph.children {
+                if remaining > 0, let text = inline as? Text {
+                    let content = text.string
+                    if content.count <= remaining {
+                        remaining -= content.count
                     } else {
-                        visit(inline)
-                        isFirst = false
+                        html += escapeHTML(String(content.dropFirst(remaining)))
+                        remaining = 0
                     }
+                } else {
+                    remaining = 0
+                    visit(inline)
+                }
+            }
+
+            if isTight {
+                if paragraph.indexInParent < item.childCount - 1 {
+                    html += "\n"
                 }
             } else {
-                visit(child)
+                html += "</p>\n"
             }
         }
-    }
-
-    /// Convert SF Symbol name to unicode fallback
-    private func sfSymbolToUnicode(_ symbol: String) -> String {
-        // Map common SF Symbols to unicode equivalents for HTML rendering
-        let symbolMap: [String: String] = [
-            "checkmark.square.fill": "&#x2611;",     // ☑
-            "square": "&#x2610;",                     // ☐
-            "circle.lefthalf.filled": "&#x25D0;",   // ◐
-            "minus.square": "&#x229F;",              // ⊟
-            "questionmark.circle": "&#x2753;",      // ❓
-            "exclamationmark.triangle": "&#x26A0;", // ⚠
-            "xmark.circle": "&#x2717;",             // ✗
-            "circle.fill": "&#x25CF;",              // ●
-        ]
-
-        return symbolMap[symbol] ?? "&#x25A1;" // Default: white square
     }
 
     mutating func visitBlockQuote(_ blockQuote: BlockQuote) -> () {
@@ -497,20 +530,13 @@ struct HTMLRenderer: MarkupWalker {
     // MARK: - Inline HTML
 
     mutating func visitInlineHTML(_ inlineHTML: InlineHTML) -> () {
-        if allowRawHTML {
-            // Pass through raw HTML as-is
-            html += inlineHTML.rawHTML
-        }
-        // When allowRawHTML is false, HTML is stripped (no output)
+        html += HTMLSanitizer.render(inlineHTML.rawHTML, policy: rawHTMLPolicy)
     }
 
     mutating func visitHTMLBlock(_ htmlBlock: HTMLBlock) -> () {
-        if allowRawHTML {
-            // Pass through raw HTML block as-is
-            html += htmlBlock.rawHTML
-            html += "\n"
-        }
-        // When allowRawHTML is false, HTML blocks are stripped (no output)
+        let rendered = HTMLSanitizer.render(htmlBlock.rawHTML, policy: rawHTMLPolicy)
+        guard !rendered.isEmpty else { return }
+        html += rawHTMLPolicy == .escape ? "<p>\(rendered)</p>\n" : rendered + "\n"
     }
 
     // MARK: - Helpers

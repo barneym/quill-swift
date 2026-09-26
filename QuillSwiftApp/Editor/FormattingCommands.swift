@@ -1,4 +1,5 @@
 import AppKit
+import MarkdownRenderer
 
 /// Provides markdown formatting operations for text editing.
 ///
@@ -264,6 +265,47 @@ struct FormattingCommands {
     }
 }
 
+// MARK: - HTML Image Conversion
+
+extension FormattingCommands {
+
+    /// Rewrite HTML `<img>` tags as markdown images (Obsidian `|size` syntax
+    /// for pixel sizes), as one undoable change, then report what happened.
+    static func convertHTMLImages(in textView: NSTextView) {
+        let result = HTMLImageConverter.convert(textView.string)
+
+        if !result.edits.isEmpty {
+            textView.undoManager?.beginUndoGrouping()
+            for edit in result.edits.reversed() {
+                let range = NSRange(location: edit.location, length: edit.length)
+                if textView.shouldChangeText(in: range, replacementString: edit.replacement) {
+                    textView.textStorage?.replaceCharacters(in: range, with: edit.replacement)
+                    textView.didChangeText()
+                }
+            }
+            textView.undoManager?.endUndoGrouping()
+            textView.undoManager?.setActionName("Convert HTML Images")
+        }
+
+        let alert = NSAlert()
+        switch (result.convertedCount, result.keptCount) {
+        case (0, 0):
+            alert.messageText = "No HTML images found."
+        case (let converted, 0):
+            alert.messageText = "Converted \(converted) HTML image\(converted == 1 ? "" : "s") to Markdown."
+        case (let converted, let kept):
+            alert.messageText = "Converted \(converted) HTML image\(converted == 1 ? "" : "s") to Markdown."
+            alert.informativeText = "\(kept) left as HTML: they use attributes Markdown can't express "
+                + "(such as alignment, styles, percentage or height-only sizes) or sit inside other HTML."
+        }
+        if let window = textView.window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
+    }
+}
+
 // MARK: - NSTextView Extension
 
 extension NSTextView {
@@ -294,6 +336,8 @@ extension NSTextView {
             FormattingCommands.toggleCheckbox(in: self)
         case .codeBlock:
             FormattingCommands.insertCodeBlock(in: self)
+        case .convertHTMLImages:
+            FormattingCommands.convertHTMLImages(in: self)
         }
     }
 }
@@ -312,4 +356,5 @@ enum FormattingCommand {
     case unorderedList
     case checkbox
     case codeBlock
+    case convertHTMLImages
 }

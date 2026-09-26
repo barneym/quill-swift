@@ -94,3 +94,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 ## License
 
 MIT License - see LICENSE for details.
+
+### Credits
+
+Checkbox icons in the preview (Obsidian-style alternate checkboxes, following the
+AnuPpuccin theme) are from [Font Awesome Free](https://fontawesome.com) by Fonticons, Inc.,
+licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), and from
+[Lucide](https://lucide.dev) (ISC License). Colors are the [Catppuccin](https://catppuccin.com)
+Latte (light) and Mocha (dark) palettes (MIT).

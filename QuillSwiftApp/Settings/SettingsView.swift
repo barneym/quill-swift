@@ -202,8 +202,21 @@ struct PreviewSettingsView: View {
     @ObservedObject private var themeManager = ThemeManager.shared
     @State private var isEditingCSS = false
 
+    /// Render raw HTML (safe subset) vs. show it as literal text
+    @AppStorage(PreviewSecurity.renderRawHTMLKey) private var renderRawHTML = true
+
     var body: some View {
         Form {
+            Section {
+                Toggle("Render HTML in Markdown", isOn: $renderRawHTML)
+            } header: {
+                Text("HTML")
+            } footer: {
+                Text("When on, a safe subset renders (images, line breaks, details, alignment); scripts, styles, frames and forms never run. When off, HTML shows as plain text.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             Section {
                 HStack {
                     Text("Font Size")
