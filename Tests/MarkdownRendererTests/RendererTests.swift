@@ -58,7 +58,7 @@ final class RendererTests: XCTestCase {
 
     func testImage() {
         let html = MarkdownRenderer.renderHTML(from: "![Alt](image.png)")
-        XCTAssertTrue(html.contains("<img src=\"image.png\" alt=\"Alt\">"))
+        XCTAssertTrue(html.contains("<img src=\"image.png\" alt=\"Alt\""), html)
     }
 
     // MARK: - Lists

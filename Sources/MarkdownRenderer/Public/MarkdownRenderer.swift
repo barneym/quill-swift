@@ -33,9 +33,13 @@ public struct MarkdownRenderer {
         /// Enable syntax highlighting for code blocks (default: true)
         public var highlightCodeBlocks: Bool = true
 
-        /// Allow raw HTML in markdown (default: true for editor preview)
-        /// When true, inline HTML and HTML blocks are rendered as-is
+        /// Allow raw HTML in markdown (default: true). When false, raw HTML is
+        /// removed entirely; when true, it is rendered per `rawHTMLPolicy`.
         public var allowRawHTML: Bool = true
+
+        /// How allowed raw HTML is rendered (default: `.safe`, an allowlist of
+        /// harmless tags — no scripts, styles, frames, forms or event handlers)
+        public var rawHTMLPolicy: RawHTMLPolicy = .safe
 
         /// Annotate block elements with `data-line` / `data-line-end` attributes
         /// holding their 0-based source line span (default: false).
@@ -79,7 +83,7 @@ public struct MarkdownRenderer {
         var renderer = HTMLRenderer(
             isDarkTheme: options.isDarkTheme,
             highlightCode: options.highlightCodeBlocks && !options.cleanHTML,
-            allowRawHTML: options.allowRawHTML,
+            rawHTMLPolicy: options.allowRawHTML ? options.rawHTMLPolicy : .strip,
             includeSourceLines: options.includeSourceLines && !options.cleanHTML,
             cleanHTML: options.cleanHTML
         )
@@ -123,7 +127,7 @@ struct HTMLRenderer: MarkupWalker {
     let highlightCode: Bool
 
     /// Whether to allow raw HTML pass-through
-    let allowRawHTML: Bool
+    let rawHTMLPolicy: RawHTMLPolicy
 
     /// Whether to emit data-line attributes for scroll sync
     let includeSourceLines: Bool
@@ -137,13 +141,13 @@ struct HTMLRenderer: MarkupWalker {
     init(
         isDarkTheme: Bool = false,
         highlightCode: Bool = true,
-        allowRawHTML: Bool = true,
+        rawHTMLPolicy: RawHTMLPolicy = .safe,
         includeSourceLines: Bool = false,
         cleanHTML: Bool = false
     ) {
         self.isDarkTheme = isDarkTheme
         self.highlightCode = highlightCode
-        self.allowRawHTML = allowRawHTML
+        self.rawHTMLPolicy = rawHTMLPolicy
         self.includeSourceLines = includeSourceLines
         self.cleanHTML = cleanHTML
     }
@@ -244,18 +248,23 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     mutating func visitLink(_ link: Link) -> () {
-        html += "<a href=\"\(escapeHTML(link.destination ?? ""))\">"
+        let destination = link.destination ?? ""
+        // Unsafe schemes (javascript:, data:, …) lose their href but keep their text
+        html += HTMLSanitizer.isSafeURL(destination) ? "<a href=\"\(escapeHTML(destination))\">" : "<a>"
         descendInto(link)
         html += "</a>"
     }
 
     mutating func visitImage(_ image: Image) -> () {
-        let src = escapeHTML(image.source ?? "")
-        let alt = escapeHTML(image.plainText)
+        let source = image.source ?? ""
+        let src = HTMLSanitizer.isSafeURL(source, allowImageData: true) ? escapeHTML(source) : ""
+        let (altText, size) = Self.splitObsidianSize(image.plainText)
+        let alt = escapeHTML(altText)
         let title = image.title.map { " title=\"\(escapeHTML($0))\"" } ?? ""
+        let sizeAttributes = (size.width.map { " width=\"\($0)\"" } ?? "") + (size.height.map { " height=\"\($0)\"" } ?? "")
 
         if cleanHTML {
-            html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title)>"
+            html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title)\(sizeAttributes)>"
             return
         }
 
@@ -263,7 +272,22 @@ struct HTMLRenderer: MarkupWalker {
         // CSS should handle max-width: 100% and proper table cell fitting.
         // Images load eagerly: lazy loading leaves off-screen images at zero
         // height, which shifts layout after scroll sync has positioned the view.
-        html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title) class=\"md-image\">"
+        html += "<img src=\"\(src)\" alt=\"\(alt)\"\(title)\(sizeAttributes) class=\"md-image\">"
+    }
+
+    /// Obsidian image size syntax: `![alt|300](src)` or `![alt|300x200](src)`.
+    static func splitObsidianSize(_ alt: String) -> (alt: String, size: (width: Int?, height: Int?)) {
+        guard let bar = alt.lastIndex(of: "|") else { return (alt, (nil, nil)) }
+        let spec = alt[alt.index(after: bar)...].trimmingCharacters(in: .whitespaces)
+        let parts = spec.split(separator: "x", omittingEmptySubsequences: false)
+        guard (1...2).contains(parts.count), let width = Int(parts[0]), width >= 0 else { return (alt, (nil, nil)) }
+        var height: Int?
+        if parts.count == 2 {
+            guard let value = Int(parts[1]) else { return (alt, (nil, nil)) }
+            height = value
+        }
+        let text = String(alt[..<bar]).trimmingCharacters(in: .whitespaces)
+        return (text, (width > 0 ? width : nil, height))
     }
 
     mutating func visitUnorderedList(_ list: UnorderedList) -> () {
@@ -506,20 +530,13 @@ struct HTMLRenderer: MarkupWalker {
     // MARK: - Inline HTML
 
     mutating func visitInlineHTML(_ inlineHTML: InlineHTML) -> () {
-        if allowRawHTML {
-            // Pass through raw HTML as-is
-            html += inlineHTML.rawHTML
-        }
-        // When allowRawHTML is false, HTML is stripped (no output)
+        html += HTMLSanitizer.render(inlineHTML.rawHTML, policy: rawHTMLPolicy)
     }
 
     mutating func visitHTMLBlock(_ htmlBlock: HTMLBlock) -> () {
-        if allowRawHTML {
-            // Pass through raw HTML block as-is
-            html += htmlBlock.rawHTML
-            html += "\n"
-        }
-        // When allowRawHTML is false, HTML blocks are stripped (no output)
+        let rendered = HTMLSanitizer.render(htmlBlock.rawHTML, policy: rawHTMLPolicy)
+        guard !rendered.isEmpty else { return }
+        html += rawHTMLPolicy == .escape ? "<p>\(rendered)</p>\n" : rendered + "\n"
     }
 
     // MARK: - Helpers
