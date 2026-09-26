@@ -198,7 +198,15 @@ struct QuillSwiftApp: App {
                 }
                 .keyboardShortcut("`", modifiers: [.command, .shift])
             }
+
+            HistoryCommands()
         }
+
+        // History window (Cmd+Y)
+        Window("History", id: "history") {
+            HistoryView()
+        }
+        .defaultSize(width: 720, height: 520)
 
         // Settings window (Cmd+,)
         #if os(macOS)

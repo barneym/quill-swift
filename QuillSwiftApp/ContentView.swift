@@ -104,6 +104,7 @@ struct ContentView: View {
         .onChange(of: document.text) { _ in
             handleTextChange()
         }
+        .onChange(of: fileURL) { newURL in if let newURL { HistoryStore.shared.recordVisit(newURL) } }
     }
 
     // MARK: - Views
@@ -339,6 +340,7 @@ struct ContentView: View {
             frame: frame,
             isDirty: false
         )
+        if let fileURL { HistoryStore.shared.recordVisit(fileURL) }
 
         // Register with draft storage for unsaved documents
         if fileURL == nil {
