@@ -147,3 +147,59 @@ final class ListTightnessTests: XCTestCase {
         XCTAssertFalse(html.contains("<p>"), html)
     }
 }
+
+// MARK: - Task Marker Precedence
+
+final class TaskMarkerPrecedenceTests: XCTestCase {
+
+    func testStarMarkerBeatsEmphasis() {
+        let html = MarkdownRenderer.renderHTML(from: "- [*] starred with a trailing star*\n")
+        XCTAssertTrue(html.contains("data-task=\"*\""), html)
+        XCTAssertFalse(html.contains("<em>"), html)
+        XCTAssertTrue(html.contains("starred with a trailing star*"), html)
+    }
+
+    func testOtherPunctuationMarkersBeatInlineSyntax() {
+        for (marker, rest) in [("_", "with_trailing_underscores_"), ("~", "tilde ~~"), ("`", "tick `")] {
+            let html = MarkdownRenderer.renderHTML(from: "- [\(marker)] \(rest)\n")
+            XCTAssertTrue(html.contains("data-task=\"\(marker == "`" ? "`" : marker)\""), "\(marker): \(html)")
+        }
+    }
+
+    func testMarkersInBlockquotesAndOrderedLists() {
+        XCTAssertTrue(MarkdownRenderer.renderHTML(from: "> - [*] quoted star*\n").contains("data-task=\"*\""))
+        XCTAssertTrue(MarkdownRenderer.renderHTML(from: "1. [*] numbered star*\n").contains("data-task=\"*\""))
+    }
+
+    func testFencedCodeUntouched() {
+        var options = MarkdownRenderer.Options()
+        options.highlightCodeBlocks = false
+        let html = MarkdownRenderer.renderHTML(from: "```\n- [*] code*\n```\n", options: options)
+        XCTAssertTrue(html.contains("- [*] code*"), html)
+        XCTAssertFalse(html.contains("\\*"), html)
+    }
+
+    func testCleanHTMLKeepsMarker() {
+        var options = MarkdownRenderer.Options()
+        options.cleanHTML = true
+        XCTAssertEqual(MarkdownRenderer.renderHTML(from: "- [*] star*\n", options: options), "<ul>\n<li>[*] star*</li>\n</ul>\n")
+    }
+
+    func testLineCountPreserved() {
+        let source = "- [*] a*\n\n```\nx\n```\n- [!] b\n"
+        XCTAssertEqual(
+            MarkdownRenderer.protectingTaskMarkers(in: source).split(separator: "\n", omittingEmptySubsequences: false).count,
+            source.split(separator: "\n", omittingEmptySubsequences: false).count
+        )
+    }
+
+    func testVaultNamesAndSpeechBubbles() {
+        let registry = CheckboxRegistry.shared
+        XCTAssertEqual(registry.resolvedType(forMarker: "F").name, "Follow-up")
+        XCTAssertEqual(registry.resolvedType(forMarker: "P").name, "Priority")
+        XCTAssertEqual(registry.resolvedType(forMarker: "S").name, "Amount/Score")
+        XCTAssertEqual(registry.resolvedType(forMarker: "7").presentation, .speechBubble)
+        XCTAssertTrue(registry.stylesheet(isDark: false).contains("linear-gradient"))
+        XCTAssertTrue(MarkdownRenderer.renderHTML(from: "- [3] bubble\n").contains("data-task=\"3\""))
+    }
+}

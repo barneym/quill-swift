@@ -149,8 +149,8 @@ final class CheckboxRenderingTests: XCTestCase {
 
     func testRegisteredAlternateCheckboxesRenderWithDataTask() {
         let cases: [(id: String, name: String)] = [
-            ("W", "Waiting"), ("D", "Delegated"), ("F", "Focused"), ("b", "Bookmark"),
-            (">", "Rescheduled"), ("<", "Scheduled"), ("*", "Star"), ("s", "Someday/Maybe"),
+            ("W", "Waiting"), ("D", "Delegated"), ("F", "Follow-up"), ("b", "Bookmark"),
+            (">", "Rescheduled"), ("<", "Scheduled"), ("*", "Starred"), ("s", "Someday/Maybe"),
         ]
         for (id, name) in cases {
             let html = render("- [\(id)] item text")

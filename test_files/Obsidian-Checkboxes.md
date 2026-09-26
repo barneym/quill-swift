@@ -18,19 +18,19 @@ Compare this file side by side in Obsidian and in QuillSwift's preview (light an
 - [!] Important `[!]`
 - [>] Rescheduled `[>]`
 - [<] Scheduled `[<]`
-- [*] Star `[*]`
+- [*] Starred `[*]`
 - ["] Quote `["]`
 - [b] Bookmark `[b]`
 - [c] Con `[c]`
 - [d] Down `[d]`
 - [f] Fire `[f]`
-- [i] Information `[i]`
+- [i] Info `[i]`
 - [I] Idea `[I]`
 - [k] Key `[k]`
 - [l] Location `[l]`
 - [n] Note `[n]`
 - [p] Pro `[p]`
-- [S] Savings `[S]`
+- [S] Amount/Score `[S]`
 - [u] Up `[u]`
 - [w] Win `[w]`
 
@@ -41,23 +41,35 @@ Compare this file side by side in Obsidian and in QuillSwift's preview (light an
 - [R] Research `[R]`
 - [M] Meeting `[M]`
 - [s] Someday/Maybe `[s]`
-- [E] Energy Required `[E]`
-- [P] Paused `[P]`
-- [F] Focused `[F]`
+- [E] Energy/Important `[E]`
+- [P] Priority `[P]`
+- [F] Follow-up `[F]`
 - [H] Habit `[H]`
+
+## Speech bubbles
+
+- [0] Speech bubble `[0]`
+- [1] Speech bubble `[1]`
+- [2] Speech bubble `[2]`
+- [3] Speech bubble `[3]`
+- [4] Speech bubble `[4]`
+- [5] Speech bubble `[5]`
+- [6] Speech bubble `[6]`
+- [7] Speech bubble `[7]`
+- [8] Speech bubble `[8]`
+- [9] Speech bubble `[9]`
 
 ## Unregistered markers
 
 Obsidian treats any single character as a task; QuillSwift draws a neutral checked box.
 
 - [z] Unknown `[z]`
-- [7] Digit `[7]` (AnuPpuccin speech bubble, not a checkbox type)
 - [+] Plus `[+]`
 
 ## Mixed content
 
 - [!] Important with **bold**, `code`, and a [link](https://obsidian.md)
-- [*] Star with *emphasis*
+- [*] Starred with *emphasis*
 - [/] In progress parent
     - [x] Done child
     - [ ] Open child
@@ -72,3 +84,12 @@ Obsidian treats any single character as a task; QuillSwift draws a neutral check
   With a second paragraph.
 
 - [-] Cancelled in a loose list
+
+## Precedence
+
+The checkbox marker always wins over emphasis:
+
+- [*] starred item with a trailing star*
+- [_] underscore marker with_trailing_underscores
+- [`] backtick marker with trailing `
+- [~] tilde marker ~~

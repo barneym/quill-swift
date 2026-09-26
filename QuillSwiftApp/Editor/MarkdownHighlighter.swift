@@ -385,8 +385,13 @@ class MarkdownHighlighter {
             patterns.append(MarkdownPattern(regex: regex, type: .bold, captureGroup: 0))
         }
 
-        // Italic (*text* or _text_)
-        if let regex = try? NSRegularExpression(pattern: "(?<![*_])(\\*|_)(?=\\S)(.+?)(?<=\\S)\\1(?![*_])", options: []) {
+        // Italic (*text* or _text_). A task marker (`- [*]`, `1. [_]`) never
+        // opens emphasis: the checkbox rule wins, as in the preview and Obsidian.
+        let taskMarker = "(?<!^[ \\t>]{0,12}[-*+][ \\t]{1,4}\\[)(?<!^[ \\t>]{0,12}\\d{1,9}[.)][ \\t]{1,4}\\[)"
+        if let regex = try? NSRegularExpression(
+            pattern: taskMarker + "(?<![*_])(\\*|_)(?=\\S)(.+?)(?<=\\S)\\1(?![*_])",
+            options: [.anchorsMatchLines]
+        ) {
             patterns.append(MarkdownPattern(regex: regex, type: .italic, captureGroup: 0))
         }
 
