@@ -55,6 +55,14 @@ struct QuillSwiftApp: App {
                 Divider()
             }
 
+            // File menu: reload after Save / Revert
+            CommandGroup(after: .saveItem) {
+                Button("Reload from Disk") {
+                    NotificationCenter.default.post(name: .reloadFromDisk, object: nil)
+                }
+                .keyboardShortcut("r", modifiers: .command)
+            }
+
             // File menu export commands
             CommandGroup(after: .importExport) {
                 Divider()
@@ -216,13 +224,14 @@ struct QuillSwiftApp: App {
         #endif
     }
 
-    /// Send a find panel action to the first responder
+    /// Route a find action to the key document window, which sends it to the
+    /// source editor's find bar or the preview's find bar depending on mode.
     private func performFindPanelAction(_ action: NSTextFinder.Action) {
-        guard let window = NSApp.keyWindow,
-              let responder = window.firstResponder as? NSTextView else {
-            return
-        }
-        responder.performFindPanelAction(action)
+        NotificationCenter.default.post(
+            name: .findAction,
+            object: nil,
+            userInfo: ["action": action.rawValue]
+        )
     }
 
     /// Send a formatting command to the first responder
@@ -242,4 +251,6 @@ extension Notification.Name {
     static let exportHTML = Notification.Name("exportHTML")
     static let exportPDF = Notification.Name("exportPDF")
     static let copyAsHTML = Notification.Name("copyAsHTML")
+    static let reloadFromDisk = Notification.Name("reloadFromDisk")
+    static let findAction = Notification.Name("findAction")
 }

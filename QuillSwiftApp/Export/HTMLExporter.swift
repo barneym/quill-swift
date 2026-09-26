@@ -99,9 +99,16 @@ struct HTMLExporter {
         try html.write(to: url, atomically: true, encoding: .utf8)
     }
 
-    /// Copy HTML to clipboard
-    func copyToClipboard() {
-        let html = generateHTML()
+    /// Copy markdown to the clipboard as clean HTML.
+    ///
+    /// Uses the renderer's `cleanHTML` mode: structural tags only, with no
+    /// stylesheet, classes, or inline styles, so rich-text editors such as
+    /// Google Docs apply their own formatting. The plain-text flavor carries the
+    /// same HTML as source text for pasting into code editors.
+    static func copyCleanHTML(markdown: String) {
+        var options = MarkdownRenderer.Options()
+        options.cleanHTML = true
+        let html = MarkdownRenderer.renderHTML(from: markdown, options: options)
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(html, forType: .html)

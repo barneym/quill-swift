@@ -472,6 +472,11 @@ private let mermaidScriptContent = """
         const container = document.createElement('div');
         container.className = 'mermaid-diagram';
         container.id = 'mermaid-' + index;
+        // Keep source-line anchors for scroll sync
+        if (pre.dataset.line !== undefined) {
+            container.dataset.line = pre.dataset.line;
+            container.dataset.lineEnd = pre.dataset.lineEnd;
+        }
 
         // Replace code block with container
         pre.parentNode.replaceChild(container, pre);

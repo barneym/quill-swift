@@ -51,15 +51,40 @@ struct ContentView: View {
     /// Current line text for status bar (checkbox detection)
     @State private var currentLine: String?
 
+    /// Open the source find bar once the source editor appears (search carried over from preview)
+    @State private var carryFindToSource = false
+
     /// Track the control active state to determine if this window is key
     @Environment(\.controlActiveState) private var controlActiveState
+
+    /// Watches the file for changes made by other applications
+    @StateObject private var fileMonitor = FileChangeMonitor()
+
+    /// Find bar state for preview mode
+    @StateObject private var previewFind = PreviewFindModel()
 
     // MARK: - Body
 
     var body: some View {
         VStack(spacing: 0) {
+            // External change panel
+            if let change = fileMonitor.change {
+                FileChangedBanner(
+                    change: change,
+                    fileName: fileURL?.lastPathComponent ?? documentTitle,
+                    hasUnsavedEdits: fileMonitor.hasUnsavedEdits,
+                    onReload: reloadFromDisk,
+                    onDismiss: fileMonitor.dismiss
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // Mode indicator bar
             modeIndicator
+
+            if viewMode == .preview && previewFind.isVisible {
+                PreviewFindBar(model: previewFind)
+            }
 
             // Content area
             switch viewMode {
@@ -73,6 +98,19 @@ struct ContentView: View {
             StatusBarView(text: document.text, fileURL: fileURL, currentLine: currentLine)
         }
         .frame(minWidth: 600, minHeight: 400)
+        .animation(.easeInOut(duration: 0.2), value: fileMonitor.change)
+        .onReceive(NotificationCenter.default.publisher(for: .reloadFromDisk)) { _ in
+            if controlActiveState == .key {
+                confirmAndReloadFromDisk()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .findAction)) { notification in
+            if controlActiveState == .key,
+               let raw = notification.userInfo?["action"] as? Int,
+               let action = NSTextFinder.Action(rawValue: raw) {
+                performFind(action)
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .togglePreview)) { _ in
             // Only respond if this window is the key/active window
             // This prevents all windows from toggling when menu/shortcut is used
@@ -97,14 +135,19 @@ struct ContentView: View {
         }
         .onAppear {
             registerDocument()
+            startFileMonitor()
         }
         .onDisappear {
             cleanupDocument()
+            fileMonitor.stop()
         }
         .onChange(of: document.text) { _ in
             handleTextChange()
         }
-        .onChange(of: fileURL) { newURL in if let newURL { HistoryStore.shared.recordVisit(newURL) } }
+        .onChange(of: fileURL) { newURL in
+            if let newURL { HistoryStore.shared.recordVisit(newURL) }
+            startFileMonitor()
+        }
     }
 
     // MARK: - Views
@@ -155,6 +198,14 @@ struct ContentView: View {
             livePreviewEnabled: themeManager.livePreviewEnabled,
             onTextViewReady: { textView in
                 sourceTextView = textView
+                scrollSync.applyPending(to: textView)
+                if carryFindToSource {
+                    carryFindToSource = false
+                    DispatchQueue.main.async {
+                        textView.window?.makeFirstResponder(textView)
+                        textView.performFindAction(.showFindInterface)
+                    }
+                }
             },
             onCursorLineChange: { line in
                 currentLine = line
@@ -169,6 +220,7 @@ struct ContentView: View {
         // Configure rendering options with theme-aware code highlighting
         var options = MarkdownRenderer.Options()
         options.isDarkTheme = isDark
+        options.includeSourceLines = true
 
         let html = MarkdownRenderer.renderHTML(from: document.text, options: options)
         let theme = isDark ? PreviewTheme.dark : PreviewTheme.light
@@ -182,12 +234,17 @@ struct ContentView: View {
             customCSS: themeManager.customCSS.isEmpty ? nil : themeManager.customCSS,
             onWebViewReady: { webView in
                 previewWebView = webView
+                previewFind.webView = webView
             },
             onCheckboxToggle: { index, isChecked in
                 toggleCheckboxInSource(at: index, checked: isChecked)
             },
             enableMermaid: themeManager.enableMermaid,
-            enableMath: themeManager.enableMath
+            enableMath: themeManager.enableMath,
+            onLoadFinished: { webView in
+                scrollSync.applyPending(to: webView)
+                previewFind.search()
+            }
         )
     }
 
@@ -227,60 +284,125 @@ struct ContentView: View {
 
     // MARK: - Actions
 
-    /// Toggle between source and preview modes
+    /// Toggle between source and preview modes, keeping the reading position
+    /// (see ScrollSync) and any active search.
     private func toggleViewMode() {
-        let previousMode = viewMode
-
-        // Capture position before switching
-        capturePosition(from: previousMode)
-
-        withAnimation(.easeInOut(duration: 0.2)) {
-            viewMode = viewMode == .source ? .preview : .source
-        }
-
-        // Clear current line when switching to preview (no cursor in preview)
-        if viewMode == .preview {
-            currentLine = nil
-        }
-
-        // Restore position after switching (with delay for view to appear)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            restorePosition(to: viewMode)
-        }
-    }
-
-    /// Capture scroll position from current mode
-    private func capturePosition(from mode: ViewMode) {
-        switch mode {
+        switch viewMode {
         case .source:
-            // Capture source position before switching to preview
             if let textView = sourceTextView {
-                _ = scrollSync.captureSourcePosition(from: textView)
+                scrollSync.captureSource(from: textView)
+            }
+            let sourceFindVisible = sourceTextView?.enclosingScrollView?.isFindBarVisible ?? false
+            switchMode(to: .preview)
+            currentLine = nil
+            if sourceFindVisible {
+                previewFind.show()
             }
         case .preview:
-            // Capture preview position before switching to source
+            let finish = {
+                carryFindToSource = previewFind.isVisible
+                if previewFind.isVisible { previewFind.close() }
+                switchMode(to: .source)
+            }
             if let webView = previewWebView {
-                scrollSync.capturePreviewPosition(from: webView) { _ in }
+                scrollSync.capturePreview(from: webView, completion: finish)
+            } else {
+                finish()
             }
         }
     }
 
-    /// Restore scroll position after switching to new mode
-    private func restorePosition(to mode: ViewMode) {
-        switch mode {
-        case .preview:
-            // Scroll preview to match source position
-            if let webView = previewWebView,
-               let sourcePosition = scrollSync.lastSourcePosition {
-                scrollSync.scrollPreviewToLine(sourcePosition.line, in: webView)
-            }
+    private func switchMode(to mode: ViewMode) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            viewMode = mode
+        }
+    }
+
+    // MARK: - Find
+
+    /// Route a Find menu command to the source find bar or the preview find bar.
+    private func performFind(_ action: NSTextFinder.Action) {
+        switch viewMode {
         case .source:
-            // Scroll source to match preview position
-            if let textView = sourceTextView,
-               let previewPosition = scrollSync.lastPreviewPosition {
-                scrollSync.scrollSourceToLine(previewPosition.sourceLine, in: textView)
+            guard let textView = sourceTextView else { return }
+            textView.window?.makeFirstResponder(textView)
+            textView.performFindAction(action)
+        case .preview:
+            switch action {
+            case .showFindInterface, .showReplaceInterface:
+                previewFind.show()
+            case .nextMatch:
+                previewFind.next()
+            case .previousMatch:
+                previewFind.previous()
+            case .setSearchString:
+                previewFind.useSelection()
+            case .hideFindInterface:
+                previewFind.close()
+            default:
+                break
             }
         }
+    }
+
+    // MARK: - External Changes
+
+    private func startFileMonitor() {
+        guard let fileURL else {
+            fileMonitor.stop()
+            return
+        }
+        fileMonitor.start(url: fileURL, currentText: { document.text })
+    }
+
+    /// File > Reload from Disk: confirm first if there are unsaved edits.
+    private func confirmAndReloadFromDisk() {
+        guard let fileURL else {
+            NSSound.beep()
+            return
+        }
+        guard fileMonitor.hasUnsavedEdits else {
+            reloadFromDisk()
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Reload “\(fileURL.lastPathComponent)” from disk?"
+        alert.informativeText = "You have unsaved changes. Reloading will discard them."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Discard & Reload")
+        alert.addButton(withTitle: "Cancel")
+        let handler: (NSApplication.ModalResponse) -> Void = { response in
+            if response == .alertFirstButtonReturn { reloadFromDisk() }
+        }
+        if let window = sourceTextView?.window ?? previewWebView?.window ?? NSApp.keyWindow {
+            alert.beginSheetModal(for: window, completionHandler: handler)
+        } else {
+            handler(alert.runModal())
+        }
+    }
+
+    /// Replace the document with the file's current contents.
+    ///
+    /// Goes through NSDocument's revert so the window's edited state and undo
+    /// history reset exactly as with File > Revert To > Last Saved Version.
+    private func reloadFromDisk() {
+        guard let fileURL else { return }
+        if let nsDocument = NSDocumentController.shared.document(for: fileURL), let type = nsDocument.fileType {
+            do {
+                try nsDocument.revert(toContentsOf: fileURL, ofType: type)
+                fileMonitor.markInSync()
+                return
+            } catch {
+                print("Revert failed, falling back to direct read: \(error)")
+            }
+        }
+        guard let data = try? Data(contentsOf: fileURL),
+              let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
+            NSSound.beep()
+            return
+        }
+        document.text = text
+        fileMonitor.markInSync()
     }
 
     // MARK: - Export Actions
@@ -316,14 +438,16 @@ struct ContentView: View {
         }
     }
 
-    /// Copy document as HTML to clipboard
+    /// Copy as clean HTML: the source selection if there is one, else the whole document
     private func copyAsHTML() {
-        let exporter = HTMLExporter(
-            markdown: document.text,
-            title: documentTitle,
-            isDark: colorScheme == .dark
-        )
-        exporter.copyToClipboard()
+        var markdown = document.text
+        if viewMode == .source, let textView = sourceTextView {
+            let selected = textView.selectedRange()
+            if selected.length > 0 {
+                markdown = (textView.string as NSString).substring(with: selected)
+            }
+        }
+        HTMLExporter.copyCleanHTML(markdown: markdown)
     }
 
     // MARK: - Session Management

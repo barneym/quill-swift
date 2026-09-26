@@ -31,6 +31,8 @@
 		AA000036 /* PDFExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000026 /* PDFExporter.swift */; };
 		AA000037 /* URLHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000027 /* URLHandler.swift */; };
 		AA000038 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000028 /* SessionManager.swift */; };
+		B2C0000000000000000000A1 /* PreviewFindBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C0000000000000000000A2 /* PreviewFindBar.swift */; };
+		B2C0000000000000000000A3 /* FileChangeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C0000000000000000000A4 /* FileChangeMonitor.swift */; };
 		AB1C0000000000000000A001 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1C0000000000000000A002 /* HistoryStore.swift */; };
 		AB1C0000000000000000A003 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1C0000000000000000A004 /* HistoryView.swift */; };
 		AA000039 /* DraftStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000029 /* DraftStorage.swift */; };
@@ -63,6 +65,8 @@
 		AA000026 /* PDFExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFExporter.swift; sourceTree = "<group>"; };
 		AA000027 /* URLHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLHandler.swift; sourceTree = "<group>"; };
 		AA000028 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
+		B2C0000000000000000000A2 /* PreviewFindBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFindBar.swift; sourceTree = "<group>"; };
+		B2C0000000000000000000A4 /* FileChangeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileChangeMonitor.swift; sourceTree = "<group>"; };
 		AB1C0000000000000000A002 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
 		AB1C0000000000000000A004 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		AA000029 /* DraftStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftStorage.swift; sourceTree = "<group>"; };
@@ -145,6 +149,7 @@
 				AA000015 /* PreviewView.swift */,
 				AA000016 /* PreviewTheme.swift */,
 				AA000022 /* ScrollSync.swift */,
+				B2C0000000000000000000A2 /* PreviewFindBar.swift */,
 			);
 			path = Preview;
 			sourceTree = "<group>";
@@ -196,6 +201,7 @@
 				AA000029 /* DraftStorage.swift */,
 				AA000028 /* SessionManager.swift */,
 				AB1C0000000000000000A002 /* HistoryStore.swift */,
+				B2C0000000000000000000A4 /* FileChangeMonitor.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -298,6 +304,8 @@
 				AA000036 /* PDFExporter.swift in Sources */,
 				AA000037 /* URLHandler.swift in Sources */,
 				AA000038 /* SessionManager.swift in Sources */,
+				B2C0000000000000000000A1 /* PreviewFindBar.swift in Sources */,
+				B2C0000000000000000000A3 /* FileChangeMonitor.swift in Sources */,
 				AB1C0000000000000000A001 /* HistoryStore.swift in Sources */,
 				AB1C0000000000000000A003 /* HistoryView.swift in Sources */,
 				AA000039 /* DraftStorage.swift in Sources */,
