@@ -32,6 +32,8 @@ struct AppearanceSettingsView: View {
 
     @ObservedObject private var themeManager = ThemeManager.shared
 
+    @AppStorage(AppDelegate.openDocumentsInTabsKey) private var openDocumentsInTabs = true
+
     var body: some View {
         Form {
             Section {
@@ -49,6 +51,16 @@ struct AppearanceSettingsView: View {
                 Toggle("Show line numbers", isOn: $themeManager.showLineNumbers)
             } header: {
                 Text("Display Options")
+            }
+
+            Section {
+                Toggle("Open documents in tabs", isOn: $openDocumentsInTabs)
+            } header: {
+                Text("Windows")
+            } footer: {
+                Text("Like Safari: files you open join the front window as tabs. ⌃⇥ and ⌃⇧⇥ switch tabs.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             Section {

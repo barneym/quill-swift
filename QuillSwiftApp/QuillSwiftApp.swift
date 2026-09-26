@@ -55,6 +55,19 @@ struct QuillSwiftApp: App {
                 Divider()
             }
 
+            // File menu: Safari-style tabs
+            CommandGroup(after: .newItem) {
+                Button("New Tab") {
+                    appDelegate.newWindowForTab(nil)
+                }
+                .keyboardShortcut("t", modifiers: .command)
+
+                Button("Reopen Last Closed Tab") {
+                    appDelegate.reopenLastClosedTab(nil)
+                }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+            }
+
             // File menu: reload after Save / Revert
             CommandGroup(after: .saveItem) {
                 Button("Reload from Disk") {
