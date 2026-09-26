@@ -81,6 +81,7 @@ struct PreviewTheme {
         <html lang="en">
         <head>
             <meta charset="UTF-8">
+            \(PreviewSecurity.contentSecurityPolicyTag)
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             \(mathCSS)
             <style>
@@ -107,7 +108,7 @@ struct PreviewTheme {
 // MARK: - Checkbox Interaction Script
 
 private let checkboxScript = """
-<script>
+<script nonce="\(PreviewSecurity.scriptNonce)">
 (function() {
     // Find all task list checkboxes and make them interactive
     const checkboxes = document.querySelectorAll('.task-list-item input[type="checkbox"].task-checkbox');
@@ -426,8 +427,8 @@ private let darkCSS = """
 // MARK: - Mermaid Diagram Script
 
 private let mermaidScriptContent = """
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>
+<script nonce="\(PreviewSecurity.scriptNonce)" src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script nonce="\(PreviewSecurity.scriptNonce)">
 (function() {
     // Initialize Mermaid with security settings
     mermaid.initialize({
@@ -505,9 +506,9 @@ private let katexCSSContent = """
 """
 
 private let katexScriptContent = """
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-<script>
+<script nonce="\(PreviewSecurity.scriptNonce)" src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script nonce="\(PreviewSecurity.scriptNonce)" src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script nonce="\(PreviewSecurity.scriptNonce)">
 (function() {
     // Render math expressions
     renderMathInElement(document.body, {
@@ -527,3 +528,35 @@ private let katexScriptContent = """
 })();
 </script>
 """
+
+// MARK: - Content Security Policy
+
+/// Defense in depth for the preview page: even if hostile markup got past the
+/// renderer's sanitizer, only QuillSwift's own scripts (carrying this launch's
+/// nonce) and the pinned CDN libraries may run. Injected WKUserScripts are not
+/// subject to page CSP.
+enum PreviewSecurity {
+    /// UserDefaults key for Settings → Preview → "Render HTML in Markdown"
+    static let renderRawHTMLKey = "renderRawHTML"
+
+    /// Stable for the process so re-renders produce identical HTML (the
+    /// preview only reloads when its HTML changes)
+    static let scriptNonce = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+
+    static var contentSecurityPolicyTag: String {
+        let policy = [
+            "default-src 'none'",
+            "script-src 'nonce-\(scriptNonce)' https://cdn.jsdelivr.net",
+            "style-src 'unsafe-inline' https://cdn.jsdelivr.net",
+            "font-src https://cdn.jsdelivr.net data:",
+            "img-src * data: blob: file:",
+            "media-src * data: blob: file:",
+            "connect-src 'none'",
+            "frame-src 'none'",
+            "object-src 'none'",
+            "form-action 'none'",
+            "base-uri 'none'"
+        ].joined(separator: "; ")
+        return "<meta http-equiv=\"Content-Security-Policy\" content=\"\(policy)\">"
+    }
+}

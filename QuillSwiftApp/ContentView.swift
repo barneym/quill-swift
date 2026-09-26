@@ -63,6 +63,9 @@ struct ContentView: View {
     /// Find bar state for preview mode
     @StateObject private var previewFind = PreviewFindModel()
 
+    /// Settings → Preview → "Render HTML in Markdown"
+    @AppStorage(PreviewSecurity.renderRawHTMLKey) private var renderRawHTML = true
+
     // MARK: - Body
 
     var body: some View {
@@ -221,6 +224,7 @@ struct ContentView: View {
         var options = MarkdownRenderer.Options()
         options.isDarkTheme = isDark
         options.includeSourceLines = true
+        options.rawHTMLPolicy = renderRawHTML ? .safe : .escape
 
         let html = MarkdownRenderer.renderHTML(from: document.text, options: options)
         let theme = isDark ? PreviewTheme.dark : PreviewTheme.light
