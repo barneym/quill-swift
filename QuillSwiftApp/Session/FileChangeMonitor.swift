@@ -148,16 +148,19 @@ final class FileChangeMonitor: ObservableObject {
         self.source = source
     }
 
+    /// Re-attach after the file was replaced or removed. Retries quickly at
+    /// first (atomic saves), then once a second for as long as the file is
+    /// missing, so a restored or re-created file is picked up again.
     private func scheduleRewatch(attempt: Int = 0) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+        let delay: TimeInterval = attempt < 5 ? 0.2 : 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self, let url = self.url, self.source == nil else { return }
             if FileManager.default.fileExists(atPath: url.path) {
                 self.watch()
                 self.scheduleCheck()
-            } else if attempt < 5 {
-                self.scheduleRewatch(attempt: attempt + 1)
             } else {
-                self.scheduleCheck()
+                if attempt == 5 { self.scheduleCheck() }
+                self.scheduleRewatch(attempt: attempt + 1)
             }
         }
     }
@@ -180,8 +183,8 @@ final class FileChangeMonitor: ObservableObject {
         }
         lastDiskContents = disk
         if disk == baseline {
-            // Unchanged content (or back to what we knew); a deleted file may have returned
-            if change == .deleted { change = nil }
+            // Unchanged content, or changed back to what the document has
+            change = nil
             return
         }
         if disk == Data(currentText().utf8) {
@@ -216,11 +219,14 @@ struct FileChangedBanner: View {
 
     private var isWarning: Bool { change == .deleted || hasUnsavedEdits }
 
+    /// Red for "reloading loses edits"; the accent color otherwise
+    private var tint: Color { isWarning ? .red : .accentColor }
+
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             Image(systemName: iconName)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundColor(isWarning ? .orange : .accentColor)
+                .foregroundColor(tint)
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -228,7 +234,7 @@ struct FileChangedBanner: View {
                     .font(.system(size: 12, weight: .semibold))
                 Text(detail)
                     .font(.system(size: 11))
-                    .foregroundColor(hasUnsavedEdits && change == .modified ? .orange : .secondary)
+                    .foregroundColor(hasUnsavedEdits && change == .modified ? .red : .secondary)
             }
             .lineLimit(1)
             .truncationMode(.middle)
@@ -242,7 +248,7 @@ struct FileChangedBanner: View {
                 Button(hasUnsavedEdits ? "Discard & Reload" : "Reload", action: onReload)
                     .controlSize(.small)
                     .buttonStyle(.borderedProminent)
-                    .tint(hasUnsavedEdits ? .orange : .accentColor)
+                    .tint(tint)
             case .deleted:
                 Button("Dismiss", action: onDismiss)
                     .controlSize(.small)
@@ -253,7 +259,7 @@ struct FileChangedBanner: View {
         .background(.bar)
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(isWarning ? Color.orange : Color.accentColor)
+                .fill(tint)
                 .frame(width: 3)
         }
         .overlay(alignment: .bottom) { Divider() }
