@@ -214,10 +214,25 @@ enum PreviewScripts {
             return result();
         }
 
+        // Lower-case one character at a time, mapping each folded index back to its
+        // offset in `text` (case mapping can change length, e.g. 'İ' → 'i̇')
+        function fold(text) {
+            var lower = '', map = [];
+            for (var i = 0; i < text.length;) {
+                var ch = String.fromCodePoint(text.codePointAt(i));
+                var folded = ch.toLocaleLowerCase();
+                for (var k = 0; k < folded.length; k++) { map.push(i); }
+                lower += folded;
+                i += ch.length;
+            }
+            map.push(text.length);
+            return { lower: lower, map: map };
+        }
+
         function search(query) {
             clear();
             if (!query) { return result(); }
-            var needle = query.toLocaleLowerCase();
+            var needle = fold(query).lower;
             var root = document.querySelector('.markdown-body') || document.body;
             var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
                 acceptNode: function(node) {
@@ -228,22 +243,26 @@ enum PreviewScripts {
             var nodes = [];
             while (walker.nextNode()) { nodes.push(walker.currentNode); }
             nodes.forEach(function(node) {
-                var text = node.nodeValue;
-                var haystack = text.toLocaleLowerCase();
-                if (haystack.length !== text.length) { return; } // case mapping changed offsets
-                var at = haystack.indexOf(needle);
+                var folded = fold(node.nodeValue);
+                var ranges = [];
+                var at = folded.lower.indexOf(needle);
                 while (at !== -1) {
-                    var match = node.splitText(at);
-                    node = match.splitText(needle.length);
+                    var start = folded.map[at], end = folded.map[at + needle.length];
+                    if (end > start) { ranges.push([start, end]); }
+                    at = folded.lower.indexOf(needle, at + needle.length);
+                }
+                // Split from the end so earlier offsets stay valid
+                var nodeMarks = [];
+                for (var r = ranges.length - 1; r >= 0; r--) {
+                    var match = node.splitText(ranges[r][0]);
+                    match.splitText(ranges[r][1] - ranges[r][0]);
                     var mark = document.createElement('mark');
                     mark.className = 'qs-find';
                     match.parentNode.insertBefore(mark, match);
                     mark.appendChild(match);
-                    marks.push(mark);
-                    text = node.nodeValue;
-                    haystack = text.toLocaleLowerCase();
-                    at = haystack.indexOf(needle);
+                    nodeMarks.unshift(mark);
                 }
+                marks = marks.concat(nodeMarks);
             });
             if (marks.length === 0) { return result(); }
             // Like Safari, start from the first match at or below the top of the view
@@ -278,6 +297,9 @@ enum PreviewScripts {
         var CONTEXT = { PRE: 1, CODE: 1, LI: 1, UL: 1, OL: 1, BLOCKQUOTE: 1, H1: 1, H2: 1, H3: 1,
                         H4: 1, H5: 1, H6: 1, STRONG: 1, EM: 1, DEL: 1, A: 1, TABLE: 1, TR: 1 };
 
+        // Block contexts dropped when only part of their text is selected
+        var BLOCK = { LI: 1, UL: 1, OL: 1, BLOCKQUOTE: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1 };
+
         function unwrap(el) {
             var parent = el.parentNode;
             while (el.firstChild) { parent.insertBefore(el.firstChild, el); }
@@ -292,7 +314,7 @@ enum PreviewScripts {
                 k.replaceWith(document.createTextNode(tex ? (display ? '$$' + tex.textContent + '$$' : '$' + tex.textContent + '$') : k.textContent));
             });
             root.querySelectorAll('input[type="checkbox"]').forEach(function(box) {
-                box.replaceWith(document.createTextNode(box.checked ? '☑' : '☐'));
+                box.replaceWith(document.createTextNode(box.checked ? '☑ ' : '☐ '));
             });
             root.querySelectorAll('script, style, svg, .mermaid-diagram').forEach(function(el) { el.remove(); });
             // Bottom-up so unwrapping never skips nodes
@@ -315,9 +337,17 @@ enum PreviewScripts {
                 holder.appendChild(selection.getRangeAt(i).cloneContents());
             }
             // Re-create structure the selection is nested in (e.g. part of one code block)
+            var inlineOnly = !holder.querySelector('li, p, h1, h2, h3, h4, h5, h6, blockquote, pre, table, ul, ol');
             var node = selection.getRangeAt(0).commonAncestorContainer;
             if (node.nodeType !== 1) { node = node.parentNode; }
             while (node && !(node.classList && node.classList.contains('markdown-body')) && node !== document.body) {
+                // Text within one table cell pastes as text, not as a broken one-cell table
+                if (node.nodeName === 'TD' || node.nodeName === 'TH') { break; }
+                // A few words from inside one list item or heading paste as text, not as a new block
+                if (BLOCK[node.nodeName] && inlineOnly && selection.toString().trim().length < node.textContent.trim().length) {
+                    node = node.parentNode;
+                    continue;
+                }
                 if (CONTEXT[node.nodeName]) {
                     var shell = node.cloneNode(false);
                     while (holder.firstChild) { shell.appendChild(holder.firstChild); }

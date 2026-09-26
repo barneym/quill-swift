@@ -103,6 +103,27 @@ final class ScrollSync {
         let scrollY = geometry.scroll(to: anchor)
         pendingAnchor = nil
         lastApplied = AppliedPosition(mode: .source, scrollY: scrollY, anchor: anchor)
+        reapplyIfResized(textView, anchor: anchor, width: clipView.bounds.width, scrollY: scrollY)
+    }
+
+    /// If the view settles to a different width right after positioning (the
+    /// mode-switch transition), the text rewraps; place the anchor again,
+    /// unless the user has already scrolled.
+    private func reapplyIfResized(_ textView: NSTextView, anchor: Anchor, width: CGFloat, scrollY: CGFloat, attempt: Int = 0) {
+        guard attempt < 3 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self, weak textView] in
+            guard let self, let textView, let clipView = textView.enclosingScrollView?.contentView,
+                  self.pendingAnchor == nil,
+                  abs(clipView.bounds.minY - scrollY) <= self.unchangedTolerance else { return }
+            if abs(clipView.bounds.width - width) < 0.5 {
+                self.reapplyIfResized(textView, anchor: anchor, width: width, scrollY: scrollY, attempt: attempt + 1)
+                return
+            }
+            guard let geometry = SourceGeometry(textView: textView) else { return }
+            let newY = geometry.scroll(to: anchor)
+            self.lastApplied = AppliedPosition(mode: .source, scrollY: newY, anchor: anchor)
+            self.reapplyIfResized(textView, anchor: anchor, width: clipView.bounds.width, scrollY: newY, attempt: attempt + 1)
+        }
     }
 
     /// Scroll the preview to the pending anchor. Call after the page finishes
@@ -359,7 +380,8 @@ extension ScrollSync {
                 if (edge === 'top') { target = 0; }
                 else if (edge === 'bottom') { target = maxScroll(); }
                 else { target = Math.min(Math.max(0, yForLine(line) - window.innerHeight / 2), maxScroll()); }
-                window.scrollTo(0, target);
+                // Round rather than let WebKit truncate, so a round trip lands on the same pixel
+                window.scrollTo(0, Math.round(target));
                 return window.scrollY;
             },
             lineForY: lineForY,
