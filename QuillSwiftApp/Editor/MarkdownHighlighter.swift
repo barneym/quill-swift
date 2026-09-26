@@ -1,4 +1,5 @@
 import AppKit
+import MarkdownRenderer
 
 /// Applies syntax highlighting to markdown text in an NSTextStorage.
 ///
@@ -75,6 +76,8 @@ class MarkdownHighlighter {
         for pattern in patterns {
             applyPattern(pattern, to: textStorage, in: substring, offset: expandedNSRange.location, codeBlockRanges: codeBlockRanges)
         }
+
+        applyTaskMarkerColors(to: textStorage, in: substring, offset: expandedNSRange.location, codeBlockRanges: codeBlockRanges)
 
         textStorage.endEditing()
     }
@@ -177,6 +180,50 @@ class MarkdownHighlighter {
             // Apply the attributes
             textStorage.addAttributes(attributes, range: adjustedRange)
         }
+    }
+
+    // MARK: - Task Markers
+
+    /// `- [c]` / `1. [c]`: capture the character inside the brackets
+    private static let taskMarkerRegex = try? NSRegularExpression(
+        pattern: "^\\s*(?:[-*+]|\\d+[.)])\\s+\\[([^\\[\\]\\s])\\](?=[ \\t]|$)",
+        options: [.anchorsMatchLines]
+    )
+
+    /// Appearance-adaptive colors per checkbox id
+    private var taskMarkerColors: [String: NSColor] = [:]
+
+    /// Color the marker inside `[ ]` with its checkbox type's color (as in the preview)
+    private func applyTaskMarkerColors(
+        to textStorage: NSTextStorage,
+        in string: String,
+        offset: Int,
+        codeBlockRanges: [NSRange]
+    ) {
+        guard let regex = Self.taskMarkerRegex else { return }
+        let nsString = string as NSString
+        regex.enumerateMatches(in: string, options: [], range: NSRange(location: 0, length: nsString.length)) { match, _, _ in
+            guard let range = match?.range(at: 1), range.location != NSNotFound,
+                  !self.rangeOverlapsCodeBlock(range, codeBlocks: codeBlockRanges) else { return }
+            let id = nsString.substring(with: range)
+            let color = self.taskMarkerColor(forId: id)
+            textStorage.addAttribute(
+                .foregroundColor,
+                value: color,
+                range: NSRange(location: range.location + offset, length: range.length)
+            )
+        }
+    }
+
+    private func taskMarkerColor(forId id: String) -> NSColor {
+        if let cached = taskMarkerColors[id] { return cached }
+        let type = CheckboxRegistry.shared.resolvedType(forMarker: id)
+        let color = NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor(hex: type.cssColor(isDark: isDark)) ?? .secondaryLabelColor
+        }
+        taskMarkerColors[id] = color
+        return color
     }
 
     /// Get text attributes for a markdown element type
@@ -319,7 +366,7 @@ class MarkdownHighlighter {
         }
 
         // Task list checkboxes
-        if let regex = try? NSRegularExpression(pattern: "^(\\s*[-*+]\\s)(\\[[ xX]\\])", options: [.anchorsMatchLines]) {
+        if let regex = try? NSRegularExpression(pattern: "^(\\s*[-*+]\\s)(\\[[^\\[\\]\\n]\\])(?=[ \\t]|$)", options: [.anchorsMatchLines]) {
             patterns.append(MarkdownPattern(regex: regex, type: .listMarker, captureGroup: 2))
         }
 

@@ -19,6 +19,8 @@ struct StatusBarView: View {
     /// Current line text (for checkbox detection)
     var currentLine: String?
 
+    @Environment(\.colorScheme) private var colorScheme
+
     /// Computed word count
     private var wordCount: Int {
         let words = text.components(separatedBy: .whitespacesAndNewlines)
@@ -59,7 +61,8 @@ struct StatusBarView: View {
                let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
                let charRange = Range(match.range(at: 1), in: trimmed) {
                 let checkboxChar = String(trimmed[charRange])
-                return CheckboxRegistry.shared.type(forId: checkboxChar)
+                // Obsidian treats any single character as a task; " " is plain To Do
+                return CheckboxRegistry.shared.resolvedType(forMarker: checkboxChar)
             }
         }
 
@@ -87,7 +90,7 @@ struct StatusBarView: View {
                 HStack(spacing: 4) {
                     Text(checkboxType.name)
                         .font(.caption)
-                        .foregroundColor(Color(nsColor: NSColor(hex: checkboxType.cssColor(isDark: false)) ?? .secondaryLabelColor))
+                        .foregroundColor(Color(nsColor: NSColor(hex: checkboxType.cssColor(isDark: colorScheme == .dark)) ?? .secondaryLabelColor))
                 }
             }
 

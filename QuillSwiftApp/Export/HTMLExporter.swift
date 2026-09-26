@@ -80,6 +80,7 @@ struct HTMLExporter {
             <style>
         \(Self.baseCSS)
         \(themeCSS)
+        \(CheckboxRegistry.shared.stylesheet(isDark: isDark))
         \(variableOverrides)
         \(userCSS)
             </style>
@@ -311,21 +312,7 @@ extension HTMLExporter {
         margin-left: -1.5em;
     }
 
-    .task-list-item input[type="checkbox"] {
-        margin-right: 0.5em;
-    }
-
-    /* Custom checkboxes */
-    .task-list-item .checkbox-symbol {
-        display: inline-block;
-        width: 1.2em;
-        text-align: center;
-        margin-right: 0.4em;
-    }
-
-    .task-list-item.custom-checkbox input[type="checkbox"] {
-        display: none;
-    }
+    /* Checkbox boxes and icons: CheckboxRegistry.stylesheet(isDark:) */
 
     /* Strong and emphasis */
     strong { font-weight: 600; }
@@ -334,6 +321,8 @@ extension HTMLExporter {
 
     /* Print styles */
     @media print {
+        /* Checkbox icons knock out the page color; the printed page is white */
+        :root { --qs-color-background: white !important; }
         body {
             background-color: white !important;
             color: black !important;

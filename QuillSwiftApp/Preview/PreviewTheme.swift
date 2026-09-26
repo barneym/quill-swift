@@ -1,4 +1,5 @@
 import AppKit
+import MarkdownRenderer
 
 /// Handles CSS theming for the preview view.
 ///
@@ -85,6 +86,7 @@ struct PreviewTheme {
             <style>
             \(baseCSS)
             \(css)
+            \(CheckboxRegistry.shared.stylesheet(isDark: isDark))
             \(overrideCSS)
             \(userCSS)
             </style>
@@ -320,27 +322,8 @@ th img.md-image {
     position: relative;
 }
 
-/* Standard HTML checkboxes */
-.task-list-item input[type="checkbox"].task-checkbox {
-    margin-right: 0.5em;
-    vertical-align: middle;
-    width: 16px;
-    height: 16px;
-    cursor: default;
-}
-
-/* Extended checkboxes with SF Symbol fallback */
-.task-list-item.extended-checkbox {
-    position: relative;
-}
-
+/* Checkbox boxes and icons: CheckboxRegistry.stylesheet(isDark:), appended in wrapHTML */
 .task-list-item .checkbox-symbol {
-    display: inline-block;
-    width: 1.2em;
-    text-align: center;
-    margin-right: 0.4em;
-    font-size: 1.1em;
-    vertical-align: middle;
     cursor: default;
 }
 

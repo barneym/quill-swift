@@ -83,6 +83,18 @@ final class LineBreakAndCleanHTMLTests: XCTestCase {
         XCTAssertTrue(html.contains("<code>code</code>"), html)
     }
 
+    func testCleanHTMLKeepsAlternateAndUnknownMarkers() {
+        let html = clean("- [b] bookmark\n- [W] waiting\n- [z] unknown\n- [\"] quote\n- [x] done")
+        for forbidden in ["class=", "style=", "<span", "<input", "data-", "title="] {
+            XCTAssertFalse(html.contains(forbidden), "found \(forbidden) in:\n\(html)")
+        }
+        XCTAssertTrue(html.contains("<li>[b] bookmark</li>"), html)
+        XCTAssertTrue(html.contains("<li>[W] waiting</li>"), html)
+        XCTAssertTrue(html.contains("<li>[z] unknown</li>"), html)
+        XCTAssertTrue(html.contains("<li>[&quot;] quote</li>"), html)
+        XCTAssertTrue(html.contains("<li>[x] done</li>"), html)
+    }
+
     func testCleanHTMLIgnoresSourceLines() {
         var options = MarkdownRenderer.Options()
         options.cleanHTML = true
