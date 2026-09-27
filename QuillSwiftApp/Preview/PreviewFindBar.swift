@@ -341,7 +341,7 @@ enum PreviewScripts {
                 var id = item ? item.getAttribute('data-checkbox-id') : '';
                 symbol.replaceWith(document.createTextNode(id ? '[' + id + '] ' : ''));
             });
-            root.querySelectorAll('script, style, svg, .mermaid-diagram').forEach(function(el) { el.remove(); });
+            root.querySelectorAll('script, style, svg, .mermaid-diagram, .qs-block-caption').forEach(function(el) { el.remove(); });
             // Bottom-up so unwrapping never skips nodes
             var all = Array.prototype.slice.call(root.querySelectorAll('*')).reverse();
             all.forEach(function(el) {

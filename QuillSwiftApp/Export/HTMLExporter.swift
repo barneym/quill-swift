@@ -106,9 +106,12 @@ struct HTMLExporter {
     /// stylesheet, classes, or inline styles, so rich-text editors such as
     /// Google Docs apply their own formatting. The plain-text flavor carries the
     /// same HTML as source text for pasting into code editors.
-    static func copyCleanHTML(markdown: String) {
+    /// With `renderMath`, math spans are kept as literal `$…$` / `$$…$$` TeX
+    /// (protected from markdown, e.g. `a_b_c` doesn't become emphasis).
+    static func copyCleanHTML(markdown: String, renderMath: Bool = false) {
         var options = MarkdownRenderer.Options()
         options.cleanHTML = true
+        options.renderMath = renderMath
         let html = MarkdownRenderer.renderHTML(from: markdown, options: options)
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()

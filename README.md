@@ -102,3 +102,8 @@ AnuPpuccin theme) are from [Font Awesome Free](https://fontawesome.com) by Fonti
 licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), and from
 [Lucide](https://lucide.dev) (ISC License). Colors are the [Catppuccin](https://catppuccin.com)
 Latte (light) and Mocha (dark) palettes (MIT).
+
+The preview bundles [Mermaid](https://mermaid.js.org) 11.17.2 (MIT, © Knut Sveidqvist) for
+diagrams and [KaTeX](https://katex.org) 0.16.47 with its fonts (MIT, © Khan Academy and other
+contributors) for math; their license texts ship beside them in
+`QuillSwiftApp/PreviewAssets/`. Both load from the app bundle, never a CDN.
