@@ -122,8 +122,10 @@ struct SourceEditorView: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = context.coordinator.textView else { return }
 
-        // Update text if changed externally
-        if textView.string != text {
+        // Apply only genuine external changes (reload, preview checkbox toggle,
+        // document undo). A value equal to what the editor last published is
+        // our own echo and must never overwrite newer typing.
+        if textView.string != text && text != context.coordinator.lastPublishedText {
             textView.setTextFromExternal(text)
         }
 
@@ -155,16 +157,21 @@ struct SourceEditorView: NSViewRepresentable {
         weak var lineNumberGutter: LineNumberGutter?
         var onCursorLineChange: ((String) -> Void)?
 
+        /// The text most recently written to the binding by the editor itself
+        var lastPublishedText: String?
+
         init(text: Binding<String>, onCursorLineChange: ((String) -> Void)? = nil) {
             _text = text
             self.onCursorLineChange = onCursorLineChange
         }
 
         func textDidChange(_ newText: String) {
-            // Update binding when text changes in the text view
-            DispatchQueue.main.async { [weak self] in
-                self?.text = newText
-            }
+            // Publish synchronously. An async write left a window in which
+            // SwiftUI re-rendered with the previous value and updateNSView
+            // replaced the editor's contents with stale text, moving the cursor
+            // and dropping or duplicating keystrokes.
+            lastPublishedText = newText
+            text = newText
         }
 
         // MARK: - NSTextViewDelegate
