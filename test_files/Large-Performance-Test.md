@@ -152,9 +152,9 @@ Reference-style links: [GitHub][gh] and [Apple][apple].
 
 ## Section 6: Images
 
-![Test Image 1](https://via.placeholder.com/400x200)
+![Test Image 1](https://placehold.co/400x200.png)
 
-![Test Image 2](https://via.placeholder.com/300x150)
+![Test Image 2](https://placehold.co/300x150.png)
 
 ---
 

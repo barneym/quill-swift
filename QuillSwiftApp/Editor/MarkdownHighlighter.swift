@@ -305,7 +305,7 @@ class MarkdownHighlighter {
             return [
                 .foregroundColor: theme.blockquote
             ]
-        case .horizontalRule:
+        case .horizontalRule, .escape:
             return [
                 .foregroundColor: theme.horizontalRule
             ]
@@ -371,17 +371,17 @@ class MarkdownHighlighter {
         }
 
         // Inline code (must come before bold/italic to avoid conflicts)
-        if let regex = try? NSRegularExpression(pattern: "`([^`]+)`", options: []) {
+        if let regex = try? NSRegularExpression(pattern: "(?<!\\\\)`([^`]+)`", options: []) {
             patterns.append(MarkdownPattern(regex: regex, type: .inlineCode, captureGroup: 0))
         }
 
         // Bold + Italic (***text*** or ___text___)
-        if let regex = try? NSRegularExpression(pattern: "(\\*{3}|_{3})(?=\\S)(.+?)(?<=\\S)\\1", options: []) {
+        if let regex = try? NSRegularExpression(pattern: "(?<![\\\\*_])(\\*{3}|_{3})(?=\\S)(.+?)(?<=[^\\\\\\s])\\1", options: []) {
             patterns.append(MarkdownPattern(regex: regex, type: .boldItalic, captureGroup: 0))
         }
 
         // Bold (**text** or __text__)
-        if let regex = try? NSRegularExpression(pattern: "(\\*{2}|_{2})(?=\\S)(.+?)(?<=\\S)\\1", options: []) {
+        if let regex = try? NSRegularExpression(pattern: "(?<![\\\\*_])(\\*{2}|_{2})(?=\\S)(.+?)(?<=[^\\\\\\s])\\1", options: []) {
             patterns.append(MarkdownPattern(regex: regex, type: .bold, captureGroup: 0))
         }
 
@@ -389,29 +389,35 @@ class MarkdownHighlighter {
         // opens emphasis: the checkbox rule wins, as in the preview and Obsidian.
         let taskMarker = "(?<!^[ \\t>]{0,12}[-*+][ \\t]{1,4}\\[)(?<!^[ \\t>]{0,12}\\d{1,9}[.)][ \\t]{1,4}\\[)"
         if let regex = try? NSRegularExpression(
-            pattern: taskMarker + "(?<![*_])(\\*|_)(?=\\S)(.+?)(?<=\\S)\\1(?![*_])",
+            pattern: taskMarker + "(?<![*_\\\\])(\\*|_)(?=\\S)(.+?)(?<=[^\\\\\\s])\\1(?![*_])",
             options: [.anchorsMatchLines]
         ) {
             patterns.append(MarkdownPattern(regex: regex, type: .italic, captureGroup: 0))
         }
 
         // Strikethrough (~~text~~)
-        if let regex = try? NSRegularExpression(pattern: "~~(.+?)~~", options: []) {
+        if let regex = try? NSRegularExpression(pattern: "(?<!\\\\)~~(.+?)(?<!\\\\)~~", options: []) {
             patterns.append(MarkdownPattern(regex: regex, type: .strikethrough, captureGroup: 0))
         }
 
         // Images ![alt](url)
-        if let regex = try? NSRegularExpression(pattern: "!\\[([^\\]]*)\\]\\(([^)]+)\\)", options: []) {
+        if let regex = try? NSRegularExpression(pattern: "(?<!\\\\)!\\[([^\\]]*)(?<!\\\\)\\]\\(([^)]+)\\)", options: []) {
             patterns.append(MarkdownPattern(regex: regex, type: .image, captureGroup: 0))
         }
 
         // Links [text](url)
-        if let regex = try? NSRegularExpression(pattern: "\\[([^\\]]+)\\]\\(([^)]+)\\)", options: []) {
+        if let regex = try? NSRegularExpression(pattern: "(?<!\\\\)\\[([^\\]]+)(?<!\\\\)\\]\\(([^)]+)\\)", options: []) {
             patterns.append(MarkdownPattern(regex: regex, type: .link, captureGroup: 1))
         }
         // URL part of links
-        if let regex = try? NSRegularExpression(pattern: "\\[[^\\]]+\\](\\([^)]+\\))", options: []) {
+        if let regex = try? NSRegularExpression(pattern: "(?<!\\\\)\\[[^\\]]+(?<!\\\\)\\](\\([^)]+\\))", options: []) {
             patterns.append(MarkdownPattern(regex: regex, type: .linkURL, captureGroup: 1))
+        }
+
+        // Backslash escapes (\*, \`, \[ …): dim the backslash so the escape is visible.
+        // Delimiter rules above ignore escaped delimiters, matching the preview.
+        if let regex = try? NSRegularExpression(pattern: "(\\\\)[!-/:-@\\[-`{-~]", options: []) {
+            patterns.append(MarkdownPattern(regex: regex, type: .escape, captureGroup: 1))
         }
 
         return patterns
@@ -448,4 +454,5 @@ private enum MarkdownElementType {
     case blockquote
     case horizontalRule
     case strikethrough
+    case escape
 }
