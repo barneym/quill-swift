@@ -129,7 +129,7 @@ class ThemeManager: ObservableObject {
         ).first else { return nil }
 
         return appSupport
-            .appendingPathComponent("QuillSwift")
+            .appendingPathComponent(AppPaths.supportFolderName)
             .appendingPathComponent("preferences.json")
     }
 
@@ -140,7 +140,7 @@ class ThemeManager: ObservableObject {
         ).first else { return nil }
 
         return appSupport
-            .appendingPathComponent("QuillSwift")
+            .appendingPathComponent(AppPaths.supportFolderName)
             .appendingPathComponent("custom.css")
     }
 

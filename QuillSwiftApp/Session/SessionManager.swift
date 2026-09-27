@@ -28,7 +28,7 @@ final class SessionManager: ObservableObject {
         ).first else { return nil }
 
         return appSupport
-            .appendingPathComponent("QuillSwift")
+            .appendingPathComponent(AppPaths.supportFolderName)
             .appendingPathComponent("session.json")
     }
 
@@ -167,3 +167,18 @@ struct WindowState: Codable, Identifiable {
 }
 
 // Note: NSRect/CGRect already conforms to Codable via CoreGraphics
+
+// MARK: - App Paths
+
+/// Where the app keeps its own data.
+///
+/// QuillSwift is not sandboxed, so its data lives in
+/// `~/Library/Application Support/<folder>`. Debug builds (bundle ID
+/// `com.quillswift.app.debug`) use a separate folder so testing never touches
+/// the installed app's History, session, drafts or settings.
+enum AppPaths {
+    nonisolated static let supportFolderName: String =
+        Bundle.main.bundleIdentifier == "com.quillswift.app" || Bundle.main.bundleIdentifier == nil
+            ? "QuillSwift"
+            : "QuillSwift Debug"
+}

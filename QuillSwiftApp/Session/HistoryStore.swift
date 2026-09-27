@@ -228,7 +228,7 @@ final class HistoryStore: ObservableObject {
             in: .userDomainMask
         ).first else { return nil }
         return appSupport
-            .appendingPathComponent("QuillSwift", isDirectory: true)
+            .appendingPathComponent(AppPaths.supportFolderName, isDirectory: true)
             .appendingPathComponent("history.json")
     }
 
