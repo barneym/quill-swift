@@ -171,7 +171,16 @@ struct SourceEditorView: NSViewRepresentable {
             // replaced the editor's contents with stale text, moving the cursor
             // and dropping or duplicating keystrokes.
             lastPublishedText = newText
+
+            // The text view already registered this edit with the (shared)
+            // document undo manager as coalesced typing. SwiftUI would add its
+            // own "restore previous value" step for every binding write, making
+            // undo go character by character and replace the whole text each
+            // step. Suppress that second registration for the editor's writes.
+            let undoManager = textView?.undoManager
+            undoManager?.disableUndoRegistration()
             text = newText
+            undoManager?.enableUndoRegistration()
         }
 
         // MARK: - NSTextViewDelegate
