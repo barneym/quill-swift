@@ -31,7 +31,7 @@ final class DraftStorage: ObservableObject {
             in: .userDomainMask
         ).first {
             draftsDirectory = appSupport
-                .appendingPathComponent("QuillSwift")
+                .appendingPathComponent(AppPaths.supportFolderName)
                 .appendingPathComponent("Drafts")
 
             // Create directory if needed
