@@ -98,34 +98,68 @@ class MarkdownTextView: NSTextView {
 
     // MARK: - Text Updates
 
-    /// Set text content from external source (document binding)
+    /// Set text content from external source (document binding).
+    ///
+    /// Replaces only the span that differs (common prefix and suffix are kept),
+    /// so the cursor, selection and scroll position stay put for edits made
+    /// elsewhere in the document, such as a checkbox toggled in preview.
     func setTextFromExternal(_ newText: String) {
         guard !isUpdatingFromExternal else { return }
-        guard string != newText else { return }
+        guard string != newText, let storage = textStorage else { return }
 
         isUpdatingFromExternal = true
         defer { isUpdatingFromExternal = false }
 
-        // Preserve selection if possible
-        let selectedRanges = self.selectedRanges
+        let change = Self.minimalChange(from: string as NSString, to: newText as NSString)
+        let selection = selectedRange()
 
-        // Update text
-        string = newText
+        storage.beginEditing()
+        storage.replaceCharacters(in: change.range, with: change.replacement)
+        storage.endEditing()
 
-        // Restore selection if still valid
-        if let firstRange = selectedRanges.first?.rangeValue {
-            let maxLocation = (string as NSString).length
-            if firstRange.location <= maxLocation {
-                let adjustedRange = NSRange(
-                    location: min(firstRange.location, maxLocation),
-                    length: min(firstRange.length, maxLocation - min(firstRange.location, maxLocation))
-                )
-                setSelectedRange(adjustedRange)
-            }
-        }
+        setSelectedRange(Self.adjustedSelection(selection, for: change, newLength: (newText as NSString).length))
 
         // Highlight the new content
         highlightAllText()
+    }
+
+    /// The smallest single replacement turning `old` into `new` (UTF-16 ranges).
+    static func minimalChange(from old: NSString, to new: NSString) -> (range: NSRange, replacement: String) {
+        let shared = min(old.length, new.length)
+        var prefix = 0
+        while prefix < shared, old.character(at: prefix) == new.character(at: prefix) {
+            prefix += 1
+        }
+        // Don't split a surrogate pair
+        if prefix > 0, CFStringIsSurrogateHighCharacter(old.character(at: prefix - 1)) {
+            prefix -= 1
+        }
+        var suffix = 0
+        while suffix < shared - prefix,
+              old.character(at: old.length - 1 - suffix) == new.character(at: new.length - 1 - suffix) {
+            suffix += 1
+        }
+        if suffix > 0, CFStringIsSurrogateLowCharacter(old.character(at: old.length - suffix)) {
+            suffix -= 1
+        }
+        let range = NSRange(location: prefix, length: old.length - prefix - suffix)
+        let replacement = new.substring(with: NSRange(location: prefix, length: new.length - prefix - suffix))
+        return (range, replacement)
+    }
+
+    /// Move a selection through a replacement: after it shifts by the length
+    /// change, inside it collapses to the end of the inserted text.
+    static func adjustedSelection(_ selection: NSRange, for change: (range: NSRange, replacement: String), newLength: Int) -> NSRange {
+        let delta = (change.replacement as NSString).length - change.range.length
+        var result = selection
+        if selection.location >= NSMaxRange(change.range) {
+            result.location += delta
+        } else if NSMaxRange(selection) > change.range.location {
+            result = NSRange(location: change.range.location + (change.replacement as NSString).length, length: 0)
+        }
+        result.location = min(max(0, result.location), newLength)
+        result.length = min(result.length, newLength - result.location)
+        return result
     }
 
     // MARK: - Text Change Handling
