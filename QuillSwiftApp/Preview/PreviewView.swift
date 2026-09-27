@@ -236,23 +236,36 @@ struct PreviewView: NSViewRepresentable {
         }
 
         /// Handle clicks on local file links
+        /// Open a `file:` link like Obsidian: markdown in QuillSwift, folders in
+        /// Finder, other files in their default app.
+        ///
+        /// Everything goes through Launch Services, which grants the sandbox
+        /// access to the target. Checking the path ourselves first (the old
+        /// `fileExists` guard) fails in the sandbox for anything the user hasn't
+        /// opened, e.g. a folder on a NAS share, so those clicks did nothing.
         private func handleLocalFileLink(_ url: URL, webView: WKWebView) {
-            let path = url.path
-
-            // Check file extension
             let ext = url.pathExtension.lowercased()
-
             if ["md", "markdown", "mdown", "mkd", "mkdn"].contains(ext) {
-                // Markdown file - open in QuillSwift
-                // Post notification for app to handle
-                NotificationCenter.default.post(
-                    name: .openMarkdownFile,
-                    object: nil,
-                    userInfo: ["url": url]
-                )
-            } else if FileManager.default.fileExists(atPath: path) {
-                // Other file - reveal in Finder
-                NSWorkspace.shared.activateFileViewerSelecting([url])
+                NSWorkspace.shared.open(
+                    [url],
+                    withApplicationAt: Bundle.main.bundleURL,
+                    configuration: NSWorkspace.OpenConfiguration()
+                ) { _, error in
+                    if let error { Self.reportUnopenable(url, error: error) }
+                }
+            } else {
+                NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+                    if let error { Self.reportUnopenable(url, error: error) }
+                }
+            }
+        }
+
+        private static func reportUnopenable(_ url: URL, error: Error) {
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.messageText = "Couldn’t open “\(url.lastPathComponent)”."
+                alert.informativeText = "\(url.path)\n\n\(error.localizedDescription)"
+                alert.runModal()
             }
         }
     }

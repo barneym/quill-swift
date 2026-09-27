@@ -103,6 +103,12 @@ final class RawHTMLRenderingTests: XCTestCase {
         XCTAssertEqual(html, "<p>&lt;b&gt;x&lt;/b&gt;</p>\n")
     }
 
+    func testMarkdownFileLinkKeepsHref() {
+        let link = "file:///Users/strider/Urd/Projects.Archive/music.asp/mp3s/%5BSoundtracks%5D"
+        let html = MarkdownRenderer.renderHTML(from: "**[Soundtracks](\(link))**")
+        XCTAssertTrue(html.contains("<a href=\"\(link)\">Soundtracks</a>"), html)
+    }
+
     func testMarkdownJavascriptLinkLosesHref() {
         let html = MarkdownRenderer.renderHTML(from: "[click](javascript:alert(1))")
         XCTAssertTrue(html.contains("<a>click</a>"), html)
