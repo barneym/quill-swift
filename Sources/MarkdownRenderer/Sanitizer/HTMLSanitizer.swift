@@ -131,8 +131,10 @@ public enum HTMLSanitizer {
         }
     }
 
-    /// Whether a URL is safe for href/src: http(s), mailto, fragment, relative,
-    /// or (for images) an inline raster image.
+    /// Whether a URL is safe for href/src: http(s), mailto, file, fragment,
+    /// relative, or (for images) an inline raster image. `file:` is allowed
+    /// because the preview only opens such links through Launch Services
+    /// (Finder / default app), never loads or runs them.
     public static func isSafeURL(_ value: String, allowImageData: Bool = false) -> Bool {
         // Browsers ignore control characters and whitespace inside schemes ("java\tscript:")
         let compact = value.unicodeScalars
@@ -145,7 +147,7 @@ public enum HTMLSanitizer {
         }
         let scheme = String(compact[..<colon])
         switch scheme {
-        case "http", "https", "mailto":
+        case "http", "https", "mailto", "file":
             return true
         case "data":
             guard allowImageData else { return false }
