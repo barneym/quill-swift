@@ -218,6 +218,26 @@ struct PreviewSettingsView: View {
             }
 
             Section {
+                Toggle("Render Mermaid diagrams", isOn: $themeManager.enableMermaid)
+            } header: {
+                Text("Diagrams")
+            } footer: {
+                Text(verbatim: "Draws ```mermaid code blocks as diagrams (flowcharts, sequence, pie, …). When off, they show as code.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section {
+                Toggle("Render math (KaTeX)", isOn: $themeManager.enableMath)
+            } header: {
+                Text("Math")
+            } footer: {
+                Text(verbatim: "Typesets $inline$, $$display$$ and ```math blocks. “$5 and $10” stays text; write \\$ for a literal dollar.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section {
                 HStack {
                     Text("Font Size")
                     Slider(value: $themeManager.previewFontSize, in: 12...24, step: 1)

@@ -106,9 +106,12 @@ struct HTMLExporter {
     /// stylesheet, classes, or inline styles, so rich-text editors such as
     /// Google Docs apply their own formatting. The plain-text flavor carries the
     /// same HTML as source text for pasting into code editors.
-    static func copyCleanHTML(markdown: String) {
+    /// With `renderMath`, math spans are kept as literal `$…$` / `$$…$$` TeX
+    /// (protected from markdown, e.g. `a_b_c` doesn't become emphasis).
+    static func copyCleanHTML(markdown: String, renderMath: Bool = false) {
         var options = MarkdownRenderer.Options()
         options.cleanHTML = true
+        options.renderMath = renderMath
         let html = MarkdownRenderer.renderHTML(from: markdown, options: options)
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
@@ -318,6 +321,30 @@ extension HTMLExporter {
     strong { font-weight: 600; }
     em { font-style: italic; }
     del { text-decoration: line-through; }
+
+    /* YAML front matter shown as a properties table (like Obsidian's Properties) */
+    .qs-frontmatter {
+        margin: 0 0 1.5em 0;
+        padding: 0.4em 0.8em;
+        border: 1px solid var(--qs-color-border);
+        border-radius: 6px;
+        font-size: 0.85em;
+        color: var(--qs-color-secondary);
+    }
+    .qs-frontmatter table { border: none; margin: 0; width: 100%; border-collapse: collapse; }
+    .qs-frontmatter tr, .qs-frontmatter tr:nth-child(2n) { background: transparent; }
+    .qs-frontmatter th, .qs-frontmatter td { border: none; padding: 0.15em 0.6em 0.15em 0; vertical-align: top; text-align: left; }
+    .qs-frontmatter th { font-weight: 600; white-space: nowrap; width: 1%; background: transparent; }
+    .qs-frontmatter td { word-break: break-word; }
+    .qs-frontmatter pre { margin: 0; background: transparent; padding: 0; }
+    .qs-property-item {
+        display: inline-block;
+        padding: 0 0.5em;
+        margin: 0.1em 0.2em 0.1em 0;
+        border-radius: 999px;
+        background: var(--qs-color-code-bg);
+        border: 1px solid var(--qs-color-border);
+    }
 
     /* Print styles */
     @media print {

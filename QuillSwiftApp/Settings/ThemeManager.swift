@@ -22,7 +22,14 @@ class ThemeManager: ObservableObject {
     @Published var appearanceMode: AppearanceMode {
         didSet {
             savePreferences()
+            applyAppearance()
         }
+    }
+
+    /// Apply the Light / Dark / System choice to the whole app (editor and
+    /// preview follow it through SwiftUI's color scheme)
+    func applyAppearance() {
+        NSApp?.appearance = effectiveAppearance
     }
 
     /// Editor font name
@@ -74,14 +81,17 @@ class ThemeManager: ObservableObject {
         }
     }
 
-    /// Enable Mermaid diagram rendering (requires trusted mode)
+    /// Render ```mermaid blocks as diagrams (Settings → Preview). Persisted as
+    /// `renderMermaid`: the old `enableMermaid` key was never user-settable (no
+    /// UI existed), so a saved `false` there is ignored and the default is on.
     @Published var enableMermaid: Bool {
         didSet {
             savePreferences()
         }
     }
 
-    /// Enable Math/LaTeX rendering with KaTeX (requires trusted mode)
+    /// Render `$…$` / `$$…$$` math with KaTeX (Settings → Preview). Persisted
+    /// as `renderMath`, replacing the never-settable `enableMath` (see above).
     @Published var enableMath: Bool {
         didSet {
             savePreferences()
@@ -156,8 +166,11 @@ class ThemeManager: ObservableObject {
         self.customCSS = ""
         self.showLineNumbers = false
         self.livePreviewEnabled = false
-        self.enableMermaid = false  // Disabled by default for security
-        self.enableMath = false     // Disabled by default for security
+        // On by default: both libraries are bundled, run with the page's nonce
+        // under CSP, and are configured strictly (Mermaid securityLevel
+        // 'strict', KaTeX trust: false)
+        self.enableMermaid = true
+        self.enableMath = true
 
         loadPreferences()
     }
@@ -181,8 +194,8 @@ class ThemeManager: ObservableObject {
             previewLineHeight = prefs.previewLineHeight
             showLineNumbers = prefs.showLineNumbers
             livePreviewEnabled = prefs.livePreviewEnabled ?? false
-            enableMermaid = prefs.enableMermaid ?? false
-            enableMath = prefs.enableMath ?? false
+            enableMermaid = prefs.renderMermaid ?? true
+            enableMath = prefs.renderMath ?? true
         } catch {
             print("Failed to load theme preferences: \(error)")
         }
@@ -209,8 +222,8 @@ class ThemeManager: ObservableObject {
             previewLineHeight: previewLineHeight,
             showLineNumbers: showLineNumbers,
             livePreviewEnabled: livePreviewEnabled,
-            enableMermaid: enableMermaid,
-            enableMath: enableMath
+            renderMermaid: enableMermaid,
+            renderMath: enableMath
         )
 
         do {
@@ -247,8 +260,8 @@ class ThemeManager: ObservableObject {
             previewLineHeight: previewLineHeight,
             showLineNumbers: showLineNumbers,
             livePreviewEnabled: livePreviewEnabled,
-            enableMermaid: enableMermaid,
-            enableMath: enableMath,
+            renderMermaid: enableMermaid,
+            renderMath: enableMath,
             customCSS: customCSS
         )
 
@@ -268,8 +281,8 @@ class ThemeManager: ObservableObject {
         previewLineHeight = theme.previewLineHeight
         showLineNumbers = theme.showLineNumbers
         livePreviewEnabled = theme.livePreviewEnabled ?? false
-        enableMermaid = theme.enableMermaid ?? false
-        enableMath = theme.enableMath ?? false
+        enableMermaid = theme.renderMermaid ?? true
+        enableMath = theme.renderMath ?? true
         customCSS = theme.customCSS
     }
 
@@ -283,8 +296,8 @@ class ThemeManager: ObservableObject {
         customCSS = ""
         showLineNumbers = false
         livePreviewEnabled = false
-        enableMermaid = false
-        enableMath = false
+        enableMermaid = true
+        enableMath = true
     }
 }
 
@@ -306,8 +319,8 @@ private struct ThemePreferences: Codable {
     let previewLineHeight: CGFloat
     let showLineNumbers: Bool
     let livePreviewEnabled: Bool?  // Optional for backward compatibility
-    let enableMermaid: Bool?       // Optional for backward compatibility
-    let enableMath: Bool?          // Optional for backward compatibility
+    let renderMermaid: Bool?       // Optional for backward compatibility (nil = on)
+    let renderMath: Bool?          // Optional for backward compatibility (nil = on)
 }
 
 private struct ExportableTheme: Codable {
@@ -318,7 +331,7 @@ private struct ExportableTheme: Codable {
     let previewLineHeight: CGFloat
     let showLineNumbers: Bool
     let livePreviewEnabled: Bool?  // Optional for backward compatibility
-    let enableMermaid: Bool?       // Optional for backward compatibility
-    let enableMath: Bool?          // Optional for backward compatibility
+    let renderMermaid: Bool?       // Optional for backward compatibility (nil = on)
+    let renderMath: Bool?          // Optional for backward compatibility (nil = on)
     let customCSS: String
 }

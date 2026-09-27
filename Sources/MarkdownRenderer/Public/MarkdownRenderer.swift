@@ -55,6 +55,14 @@ public struct MarkdownRenderer {
         /// editor picks its own fixed-width font. Implies `highlightCodeBlocks = false`.
         public var cleanHTML: Bool = false
 
+        /// Render TeX math (default: false). When on, `$…$` (inline), `$$…$$`
+        /// and ```` ```math ```` fences (display) become
+        /// `<span class="qs-math" data-display="false|true">TeX</span>` for the
+        /// host page to typeset (e.g. with KaTeX); with `cleanHTML` they stay
+        /// literal `$…$` / `$$…$$` text. When off, the source is untouched.
+        /// See `MathExtraction` for the delimiter rules.
+        public var renderMath: Bool = false
+
         public init() {}
     }
 
@@ -79,15 +87,27 @@ public struct MarkdownRenderer {
         from markdown: String,
         options: Options = Options()
     ) -> String {
-        let document = Document(parsing: protectingTaskMarkers(in: markdown))
+        // Front matter first: it is metadata, never markdown (or math)
+        let split = FrontMatter.split(markdown)
+        let body = split?.body ?? markdown
+        let math = options.renderMath ? MathExtraction.extract(from: body) : nil
+        let document = Document(parsing: protectingTaskMarkers(in: math?.markdown ?? body))
         var renderer = HTMLRenderer(
             isDarkTheme: options.isDarkTheme,
             highlightCode: options.highlightCodeBlocks && !options.cleanHTML,
             rawHTMLPolicy: options.allowRawHTML ? options.rawHTMLPolicy : .strip,
             includeSourceLines: options.includeSourceLines && !options.cleanHTML,
-            cleanHTML: options.cleanHTML
+            cleanHTML: options.cleanHTML,
+            renderMath: options.renderMath,
+            math: math
         )
-        return renderer.render(document)
+        let html = renderer.render(document)
+        // Clipboard HTML leaves metadata out; preview and export show a properties table
+        guard let frontMatter = split?.frontMatter, !options.cleanHTML else { return html }
+        let lines = options.includeSourceLines
+            ? " data-line=\"0\" data-line-end=\"\(frontMatter.lineCount - 1)\""
+            : ""
+        return frontMatter.html(lineAttributes: lines) + html
     }
 
     /// Render markdown to AttributedString
@@ -184,6 +204,23 @@ struct HTMLRenderer: MarkupWalker {
     /// Whether to emit minimal, presentation-free HTML
     let cleanHTML: Bool
 
+    /// Whether ```math fences render as display math
+    let renderMath: Bool
+
+    /// Math spans lifted out of the source (placeholders in the parsed text)
+    let math: MathExtraction?
+
+    /// `math.placeholderPattern`, compiled once per render
+    private let mathPattern: NSRegularExpression?
+
+    /// Code block languages from Obsidian plugins, which only run inside
+    /// Obsidian: shown as code under a caption naming the plugin
+    static let obsidianPluginCaptions: [String: String] = [
+        "dataview": "Obsidian Dataview query",
+        "dataviewjs": "Obsidian Dataview query",
+        "tasks": "Obsidian Tasks query"
+    ]
+
     // Track current table's column alignments for cell rendering
     private var currentTableAlignments: [Table.ColumnAlignment?] = []
 
@@ -192,20 +229,69 @@ struct HTMLRenderer: MarkupWalker {
         highlightCode: Bool = true,
         rawHTMLPolicy: RawHTMLPolicy = .safe,
         includeSourceLines: Bool = false,
-        cleanHTML: Bool = false
+        cleanHTML: Bool = false,
+        renderMath: Bool = false,
+        math: MathExtraction? = nil
     ) {
         self.isDarkTheme = isDarkTheme
         self.highlightCode = highlightCode
         self.rawHTMLPolicy = rawHTMLPolicy
         self.includeSourceLines = includeSourceLines
         self.cleanHTML = cleanHTML
+        self.renderMath = renderMath
+        self.math = (math?.spans.isEmpty ?? true) ? nil : math
+        self.mathPattern = self.math?.placeholderPattern
     }
 
     mutating func render(_ document: Document) -> String {
         html = ""
         currentTableAlignments = []
         visit(document)
+        // Placeholders outside text (link destinations, raw HTML) can't hold
+        // rendered math: restore the TeX as it was written
+        if math != nil {
+            html = substitutingMath(in: html) { span in escapeHTML(span.source) }
+        }
         return html
+    }
+
+    // MARK: - Math
+
+    /// Replace math placeholders in `string` using `render`
+    private func substitutingMath(in string: String, _ render: (MathSpan) -> String) -> String {
+        guard let math, let mathPattern, string.contains(math.prefix) else { return string }
+        let ns = string as NSString
+        var result = ""
+        var last = 0
+        for match in mathPattern.matches(in: string, range: NSRange(location: 0, length: ns.length)) {
+            result += ns.substring(with: NSRange(location: last, length: match.range.location - last))
+            let index = Int(ns.substring(with: match.range(at: 1))) ?? -1
+            result += math.spans.indices.contains(index)
+                ? render(math.spans[index])
+                : ns.substring(with: match.range)
+            last = match.range.location + match.range.length
+        }
+        result += ns.substring(from: last)
+        return result
+    }
+
+    /// Math element for the preview, or literal TeX for clean HTML
+    private func mathHTML(_ span: MathSpan) -> String {
+        if cleanHTML { return escapeHTML(span.source) }
+        return "<span class=\"qs-math\" data-display=\"\(span.isDisplay)\">\(escapeHTML(span.tex))</span>"
+    }
+
+    /// The display-math span when a paragraph holds nothing else
+    private func soleDisplayMath(_ paragraph: Paragraph) -> MathSpan? {
+        guard let math, let mathPattern, paragraph.childCount == 1,
+              let text = paragraph.child(at: 0) as? Text else { return nil }
+        let string = text.string.trimmingCharacters(in: .whitespaces)
+        let ns = string as NSString
+        guard let match = mathPattern.firstMatch(in: string, range: NSRange(location: 0, length: ns.length)),
+              match.range.length == ns.length,
+              let index = Int(ns.substring(with: match.range(at: 1))),
+              math.spans.indices.contains(index), math.spans[index].isDisplay else { return nil }
+        return math.spans[index]
     }
 
     mutating func visitDocument(_ document: Document) -> () {
@@ -224,6 +310,15 @@ struct HTMLRenderer: MarkupWalker {
             descendInto(paragraph)
             if paragraph.indexInParent < item.childCount - 1 {
                 html += "\n"
+            }
+            return
+        }
+        // A display equation on its own: a block, spanning all its source lines
+        if let span = soleDisplayMath(paragraph) {
+            if cleanHTML {
+                html += "<p>\(mathHTML(span))</p>\n"
+            } else {
+                html += "<div class=\"qs-math-block\"\(lineAttributes(paragraph, extraLines: span.lineCount - 1))>\(mathHTML(span))</div>\n"
             }
             return
         }
@@ -251,7 +346,8 @@ struct HTMLRenderer: MarkupWalker {
     }
 
     mutating func visitText(_ text: Text) -> () {
-        html += escapeHTML(text.string)
+        let escaped = escapeHTML(text.string)
+        html += math == nil ? escaped : substitutingMath(in: escaped, mathHTML)
     }
 
     mutating func visitStrong(_ strong: Strong) -> () {
@@ -273,6 +369,30 @@ struct HTMLRenderer: MarkupWalker {
     mutating func visitCodeBlock(_ codeBlock: CodeBlock) -> () {
         let language = codeBlock.language ?? ""
         let code = codeBlock.code
+        let languageKey = language.lowercased()
+
+        // ```math: display math (literal $$…$$ in clean HTML)
+        if renderMath, languageKey == "math" {
+            let tex = code.hasSuffix("\n") ? String(code.dropLast()) : code
+            let span = MathSpan(tex: tex, isDisplay: true, source: "$$\n\(tex)\n$$", lineCount: 1)
+            if cleanHTML {
+                html += "<p>\(mathHTML(span))</p>\n"
+            } else {
+                html += "<div class=\"qs-math-block\"\(lineAttributes(codeBlock))>\(mathHTML(span))</div>\n"
+            }
+            return
+        }
+
+        // Mermaid: plain source for the page's diagram script, never highlighted
+        if languageKey == "mermaid", !cleanHTML {
+            html += "<pre\(lineAttributes(codeBlock)) class=\"mermaid-source\"><code class=\"language-mermaid\">\(escapeHTML(code))</code></pre>\n"
+            return
+        }
+
+        // Obsidian plugin queries can't run here: label them above the code
+        if !cleanHTML, let caption = Self.obsidianPluginCaptions[languageKey] {
+            html += "<div class=\"qs-block-caption\">\(caption)</div>\n"
+        }
 
         // Build the opening tag
         if language.isEmpty || cleanHTML {
@@ -592,12 +712,13 @@ struct HTMLRenderer: MarkupWalker {
 
     /// ` data-line="…" data-line-end="…"` for a block's 0-based source line span,
     /// or an empty string when source lines are disabled or unknown.
-    private func lineAttributes(_ markup: Markup) -> String {
+    /// `extraLines` extends the span over source lines a math placeholder replaced.
+    private func lineAttributes(_ markup: Markup, extraLines: Int = 0) -> String {
         guard includeSourceLines, let range = markup.range else { return "" }
         let start = range.lowerBound.line - 1
         // A range ending at column 1 stops before that line's first character
         let endLine = range.upperBound.column <= 1 ? range.upperBound.line - 1 : range.upperBound.line
-        let end = max(start, endLine - 1)
+        let end = max(start, endLine - 1) + max(0, extraLines)
         return " data-line=\"\(start)\" data-line-end=\"\(end)\""
     }
 

@@ -69,8 +69,8 @@ struct PreviewTheme {
 
         let userCSS = customCSS ?? ""
 
-        // Include Mermaid script if enabled
-        let mermaidScript = enableMermaid ? mermaidScriptContent : ""
+        // Include Mermaid script if enabled (themed to match the page)
+        let mermaidScript = enableMermaid ? mermaidScriptContent(isDark: isDark) : ""
 
         // Include KaTeX scripts if enabled
         let mathScript = enableMath ? katexScriptContent : ""
@@ -87,6 +87,7 @@ struct PreviewTheme {
             <style>
             \(baseCSS)
             \(css)
+            \(diagramAndMathCSS)
             \(CheckboxRegistry.shared.stylesheet(isDark: isDark))
             \(overrideCSS)
             \(userCSS)
@@ -139,6 +140,30 @@ private let checkboxScript = """
 // MARK: - Base CSS
 
 private let baseCSS = """
+/* YAML front matter shown as a properties table (like Obsidian's Properties) */
+.qs-frontmatter {
+    margin: 0 0 1.5em 0;
+    padding: 0.4em 0.8em;
+    border: 1px solid var(--qs-color-border);
+    border-radius: 6px;
+    font-size: 0.85em;
+    color: var(--qs-color-secondary);
+}
+.qs-frontmatter table { border: none; margin: 0; width: 100%; border-collapse: collapse; }
+.qs-frontmatter tr, .qs-frontmatter tr:nth-child(2n) { background: transparent; }
+.qs-frontmatter th, .qs-frontmatter td { border: none; padding: 0.15em 0.6em 0.15em 0; vertical-align: top; text-align: left; }
+.qs-frontmatter th { font-weight: 600; white-space: nowrap; width: 1%; background: transparent; }
+.qs-frontmatter td { word-break: break-word; }
+.qs-frontmatter pre { margin: 0; background: transparent; padding: 0; }
+.qs-property-item {
+    display: inline-block;
+    padding: 0 0.5em;
+    margin: 0.1em 0.2em 0.1em 0;
+    border-radius: 999px;
+    background: var(--qs-color-code-bg);
+    border: 1px solid var(--qs-color-border);
+}
+
 /* Reset and base styles */
 * {
     box-sizing: border-box;
@@ -383,6 +408,9 @@ private let lightCSS = """
     --qs-color-table-header: #f6f8fa;
     --qs-color-table-row-alt: #f6f8fa;
     --qs-color-highlight: #fff8c5;
+    --qs-color-error-text: #cf222e;
+    --qs-color-error-bg: #ffebe9;
+    --qs-color-error-border: #ff818266;
 
     /* Spacing */
     --qs-spacing-paragraph: 1em;
@@ -414,6 +442,9 @@ private let darkCSS = """
     --qs-color-table-header: #161b22;
     --qs-color-table-row-alt: #161b22;
     --qs-color-highlight: #634c00;
+    --qs-color-error-text: #ff7b72;
+    --qs-color-error-bg: #f851491a;
+    --qs-color-error-border: #f8514966;
 
     /* Spacing */
     --qs-spacing-paragraph: 1em;
@@ -424,68 +455,102 @@ private let darkCSS = """
 }
 """
 
+// MARK: - Bundled Libraries
+
+/// Mermaid and KaTeX ship inside the app (`PreviewAssets`, a folder reference
+/// copied verbatim into Resources) and load from their `file:` URLs: the
+/// preview page is a temporary file with read access to `/` (see
+/// `PreviewView.Coordinator.load`), so it works offline and never contacts a CDN.
+enum PreviewAssets {
+    /// `…/QuillSwift.app/Contents/Resources/PreviewAssets`, if bundled
+    static let folderURL: URL? = Bundle.main.url(forResource: "PreviewAssets", withExtension: nil)
+
+    static func url(_ relativePath: String) -> String? {
+        guard let folderURL else { return nil }
+        let url = folderURL.appendingPathComponent(relativePath)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return url.absoluteString.replacingOccurrences(of: "\"", with: "%22")
+    }
+
+    static let mermaidJS = url("mermaid/mermaid.min.js")
+    static let katexJS = url("katex/katex.min.js")
+    static let katexCSS = url("katex/katex.min.css")
+}
+
 // MARK: - Mermaid Diagram Script
 
-private let mermaidScriptContent = """
-<script nonce="\(PreviewSecurity.scriptNonce)" src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script nonce="\(PreviewSecurity.scriptNonce)">
-(function() {
-    // Initialize Mermaid with security settings
-    mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: 'strict',
-        theme: document.documentElement.style.getPropertyValue('--qs-color-background') === '#0d1117' ? 'dark' : 'default',
-        maxTextSize: 50000,  // 50KB limit
-        flowchart: { useMaxWidth: true },
-        sequence: { useMaxWidth: true }
-    });
+/// Renders ```mermaid blocks (`pre > code.language-mermaid`, emitted unhighlighted
+/// by the renderer) into `.mermaid-diagram` containers that keep the block's
+/// source-line anchors. Errors show in a small box instead of breaking the page.
+private func mermaidScriptContent(isDark: Bool) -> String {
+    guard let src = PreviewAssets.mermaidJS else { return "" }
+    return """
+    <script nonce="\(PreviewSecurity.scriptNonce)" src="\(src)"></script>
+    <script nonce="\(PreviewSecurity.scriptNonce)">
+    (function() {
+        if (typeof mermaid === 'undefined') { return; }
+        mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: 'strict',
+            theme: \(isDark ? "'dark'" : "'default'"),
+            maxTextSize: 50000,
+            flowchart: { useMaxWidth: true },
+            sequence: { useMaxWidth: true }
+        });
 
-    // Find all mermaid code blocks and render them
-    const codeBlocks = document.querySelectorAll('pre > code.language-mermaid');
-    codeBlocks.forEach((codeBlock, index) => {
-        const pre = codeBlock.parentElement;
-        const content = codeBlock.textContent;
-
-        // Check size limit (50KB)
-        if (content.length > 50000) {
-            pre.innerHTML = '<p style="color: red;">Mermaid diagram too large (max 50KB)</p>';
-            return;
+        function showError(container, message) {
+            container.classList.add('mermaid-error');
+            container.textContent = '';
+            var title = document.createElement('div');
+            title.className = 'mermaid-error-title';
+            title.textContent = 'Mermaid diagram could not be rendered';
+            var detail = document.createElement('pre');
+            detail.textContent = String(message || 'Unknown error').trim();
+            container.appendChild(title);
+            container.appendChild(detail);
         }
 
-        // Create container for rendered diagram
-        const container = document.createElement('div');
-        container.className = 'mermaid-diagram';
-        container.id = 'mermaid-' + index;
-        // Keep source-line anchors for scroll sync
-        if (pre.dataset.line !== undefined) {
-            container.dataset.line = pre.dataset.line;
-            container.dataset.lineEnd = pre.dataset.lineEnd;
-        }
+        var queue = Promise.resolve();
+        document.querySelectorAll('pre > code.language-mermaid').forEach(function(codeBlock, index) {
+            var pre = codeBlock.parentElement;
+            var content = codeBlock.textContent;
 
-        // Replace code block with container
-        pre.parentNode.replaceChild(container, pre);
+            var container = document.createElement('div');
+            container.className = 'mermaid-diagram';
+            container.id = 'mermaid-' + index;
+            // Keep source-line anchors for scroll sync
+            if (pre.dataset.line !== undefined) {
+                container.dataset.line = pre.dataset.line;
+                container.dataset.lineEnd = pre.dataset.lineEnd;
+            }
+            pre.parentNode.replaceChild(container, pre);
 
-        // Render with timeout
-        const timeoutId = setTimeout(() => {
-            container.innerHTML = '<p style="color: orange;">Mermaid diagram rendering timeout</p>';
-        }, 5000);
+            if (content.length > 50000) {
+                showError(container, 'Diagram too large (max 50 KB)');
+                return;
+            }
 
-        try {
-            mermaid.render('mermaid-svg-' + index, content).then(result => {
-                clearTimeout(timeoutId);
-                container.innerHTML = result.svg;
-            }).catch(err => {
-                clearTimeout(timeoutId);
-                container.innerHTML = '<pre style="color: red;">Mermaid error: ' + err.message + '</pre>';
+            // One diagram at a time: Mermaid's renderer shares layout state
+            queue = queue.then(function() {
+                var id = 'mermaid-svg-' + index;
+                return mermaid.render(id, content).then(function(result) {
+                    container.innerHTML = result.svg;
+                }).catch(function(err) {
+                    showError(container, err && (err.message || err.str) || err);
+                    // A failed render can leave its scratch element behind
+                    ['d' + id, id].forEach(function(leftover) {
+                        var el = document.getElementById(leftover);
+                        if (el && !container.contains(el)) { el.remove(); }
+                    });
+                });
             });
-        } catch (err) {
-            clearTimeout(timeoutId);
-            container.innerHTML = '<pre style="color: red;">Mermaid error: ' + err.message + '</pre>';
-        }
-    });
-})();
-</script>
-<style>
+        });
+    })();
+    </script>
+    """
+}
+
+private let diagramAndMathCSS = """
 .mermaid-diagram {
     display: flex;
     justify-content: center;
@@ -496,45 +561,91 @@ private let mermaidScriptContent = """
     max-width: 100%;
     height: auto;
 }
-</style>
+.mermaid-diagram.mermaid-error {
+    display: block;
+    padding: 8px 12px;
+    border: 1px solid var(--qs-color-error-border);
+    border-radius: 6px;
+    background-color: var(--qs-color-error-bg);
+    font-size: 0.875em;
+}
+.mermaid-error-title {
+    font-weight: 600;
+    color: var(--qs-color-error-text);
+    margin-bottom: 4px;
+}
+.mermaid-diagram.mermaid-error pre {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    white-space: pre-wrap;
+    font-size: 0.85em;
+    color: var(--qs-color-secondary);
+}
+
+/* Math: .qs-math spans from the renderer, typeset by KaTeX */
+.qs-math[data-display="true"] { display: block; }
+.qs-math-block { margin: 0 0 var(--qs-spacing-paragraph) 0; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+.qs-math-block .katex-display { margin: 0.5em 0; }
+
+/* Obsidian plugin blocks (Dataview, Tasks): shown as code with a caption */
+.qs-block-caption {
+    font-size: 0.75em;
+    font-weight: 500;
+    color: var(--qs-color-secondary);
+    margin: 0 0 4px 2px;
+    letter-spacing: 0.02em;
+}
+.qs-block-caption + pre { margin-top: 0; }
 """
 
 // MARK: - KaTeX Math Script
 
-private let katexCSSContent = """
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-"""
+private var katexCSSContent: String {
+    guard let href = PreviewAssets.katexCSS else { return "" }
+    return "<link rel=\"stylesheet\" href=\"\(href)\">"
+}
 
-private let katexScriptContent = """
-<script nonce="\(PreviewSecurity.scriptNonce)" src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script nonce="\(PreviewSecurity.scriptNonce)" src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-<script nonce="\(PreviewSecurity.scriptNonce)">
-(function() {
-    // Render math expressions
-    renderMathInElement(document.body, {
-        delimiters: [
-            {left: '$$', right: '$$', display: true},
-            {left: '$', right: '$', display: false},
-            {left: '\\\\[', right: '\\\\]', display: true},
-            {left: '\\\\(', right: '\\\\)', display: false}
-        ],
-        throwOnError: false,
-        errorColor: '#cc0000',
-        strict: false,
-        trust: false,
-        maxSize: 10,
-        maxExpand: 100
-    });
-})();
-</script>
-"""
+/// Typesets each `.qs-math` span the renderer emitted (the renderer already
+/// found the math, so no delimiter scanning of page text happens here).
+private var katexScriptContent: String {
+    guard let src = PreviewAssets.katexJS else { return "" }
+    return """
+    <script nonce="\(PreviewSecurity.scriptNonce)" src="\(src)"></script>
+    <script nonce="\(PreviewSecurity.scriptNonce)">
+    (function() {
+        if (typeof katex === 'undefined') { return; }
+        document.querySelectorAll('.qs-math').forEach(function(el) {
+            var tex = el.textContent;
+            try {
+                katex.render(tex, el, {
+                    displayMode: el.getAttribute('data-display') === 'true',
+                    throwOnError: false,
+                    errorColor: '#cc0000',
+                    strict: false,
+                    trust: false,
+                    maxSize: 10,
+                    maxExpand: 1000
+                });
+            } catch (err) {
+                el.textContent = tex;
+                el.title = String(err && err.message || err);
+            }
+        });
+    })();
+    </script>
+    """
+}
 
 // MARK: - Content Security Policy
 
 /// Defense in depth for the preview page: even if hostile markup got past the
 /// renderer's sanitizer, only QuillSwift's own scripts (carrying this launch's
-/// nonce) and the pinned CDN libraries may run. Injected WKUserScripts are not
-/// subject to page CSP.
+/// nonce) may run — the bundled Mermaid/KaTeX files carry it too, so no
+/// script runs on its location alone. Styles and fonts may also come from
+/// `file:` (KaTeX's stylesheet and fonts in the app bundle); nothing loads from
+/// the network except images. Injected WKUserScripts are not subject to page CSP.
 enum PreviewSecurity {
     /// UserDefaults key for Settings → Preview → "Render HTML in Markdown"
     static let renderRawHTMLKey = "renderRawHTML"
@@ -546,9 +657,9 @@ enum PreviewSecurity {
     static var contentSecurityPolicyTag: String {
         let policy = [
             "default-src 'none'",
-            "script-src 'nonce-\(scriptNonce)' https://cdn.jsdelivr.net",
-            "style-src 'unsafe-inline' https://cdn.jsdelivr.net",
-            "font-src https://cdn.jsdelivr.net data:",
+            "script-src 'nonce-\(scriptNonce)'",
+            "style-src 'unsafe-inline' file:",
+            "font-src file: data:",
             "img-src * data: blob: file:",
             "media-src * data: blob: file:",
             "connect-src 'none'",

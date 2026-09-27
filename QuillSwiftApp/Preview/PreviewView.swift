@@ -136,6 +136,15 @@ struct PreviewView: NSViewRepresentable {
         coordinator.removePageFile()
     }
 
+    /// Temporary folder for preview page files, per build (Debug/Release)
+    static let pageFolder = FileManager.default.temporaryDirectory
+        .appendingPathComponent("QuillSwiftPreview-\(Bundle.main.bundleIdentifier ?? "app")", isDirectory: true)
+
+    /// Remove page files left by earlier launches
+    static func removeStalePageFiles() {
+        try? FileManager.default.removeItem(at: pageFolder)
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
@@ -153,8 +162,7 @@ struct PreviewView: NSViewRepresentable {
 
         /// Temporary file the page is loaded from (see `load`)
         private lazy var pageFileURL: URL = {
-            let folder = FileManager.default.temporaryDirectory
-                .appendingPathComponent("QuillSwiftPreview", isDirectory: true)
+            let folder = PreviewView.pageFolder
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             return folder.appendingPathComponent("\(UUID().uuidString).html")
         }()

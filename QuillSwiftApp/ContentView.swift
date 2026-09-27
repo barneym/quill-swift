@@ -225,6 +225,7 @@ struct ContentView: View {
         options.isDarkTheme = isDark
         options.includeSourceLines = true
         options.rawHTMLPolicy = renderRawHTML ? .safe : .escape
+        options.renderMath = themeManager.enableMath
 
         let html = MarkdownRenderer.renderHTML(from: document.text, options: options)
         let theme = isDark ? PreviewTheme.dark : PreviewTheme.light
@@ -455,7 +456,7 @@ struct ContentView: View {
                 markdown = (textView.string as NSString).substring(with: selected)
             }
         }
-        HTMLExporter.copyCleanHTML(markdown: markdown)
+        HTMLExporter.copyCleanHTML(markdown: markdown, renderMath: themeManager.enableMath)
     }
 
     // MARK: - Session Management
