@@ -49,6 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launchDate = Date()
         UserDefaults.standard.register(defaults: [Self.openDocumentsInTabsKey: true])
         NSWindow.allowsAutomaticWindowTabbing = true
+        ThemeManager.shared.applyAppearance()
+        PreviewView.removeStalePageFiles()
 
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(windowDidBecomeKey(_:)),

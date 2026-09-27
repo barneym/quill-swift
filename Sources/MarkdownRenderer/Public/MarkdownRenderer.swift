@@ -87,8 +87,11 @@ public struct MarkdownRenderer {
         from markdown: String,
         options: Options = Options()
     ) -> String {
-        let math = options.renderMath ? MathExtraction.extract(from: markdown) : nil
-        let document = Document(parsing: protectingTaskMarkers(in: math?.markdown ?? markdown))
+        // Front matter first: it is metadata, never markdown (or math)
+        let split = FrontMatter.split(markdown)
+        let body = split?.body ?? markdown
+        let math = options.renderMath ? MathExtraction.extract(from: body) : nil
+        let document = Document(parsing: protectingTaskMarkers(in: math?.markdown ?? body))
         var renderer = HTMLRenderer(
             isDarkTheme: options.isDarkTheme,
             highlightCode: options.highlightCodeBlocks && !options.cleanHTML,
@@ -98,7 +101,13 @@ public struct MarkdownRenderer {
             renderMath: options.renderMath,
             math: math
         )
-        return renderer.render(document)
+        let html = renderer.render(document)
+        // Clipboard HTML leaves metadata out; preview and export show a properties table
+        guard let frontMatter = split?.frontMatter, !options.cleanHTML else { return html }
+        let lines = options.includeSourceLines
+            ? " data-line=\"0\" data-line-end=\"\(frontMatter.lineCount - 1)\""
+            : ""
+        return frontMatter.html(lineAttributes: lines) + html
     }
 
     /// Render markdown to AttributedString

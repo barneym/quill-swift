@@ -22,7 +22,14 @@ class ThemeManager: ObservableObject {
     @Published var appearanceMode: AppearanceMode {
         didSet {
             savePreferences()
+            applyAppearance()
         }
+    }
+
+    /// Apply the Light / Dark / System choice to the whole app (editor and
+    /// preview follow it through SwiftUI's color scheme)
+    func applyAppearance() {
+        NSApp?.appearance = effectiveAppearance
     }
 
     /// Editor font name
