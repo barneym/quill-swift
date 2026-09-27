@@ -31,7 +31,7 @@ This is `inline code` within a sentence.
 
 This is a [link to GitHub](https://github.com).
 
-This is an ![image alt text](https://via.placeholder.com/150 "Image title").
+This is an ![image alt text](https://placehold.co/150.png "Image title").
 
 ---
 
@@ -206,11 +206,11 @@ QuillSwift
 
 ### Images
 
-![Placeholder](https://via.placeholder.com/300x200)
+![Placeholder](https://placehold.co/300x200.png)
 
 ### Image with Link
 
-[![Linked Image](https://via.placeholder.com/100)](https://example.com)
+[![Linked Image](https://placehold.co/100.png)](https://example.com)
 
 ---
 

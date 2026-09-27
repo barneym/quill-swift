@@ -62,9 +62,10 @@ struct PreviewView: NSViewRepresentable {
         // Add script message handler for checkbox toggling
         let contentController = configuration.userContentController
         contentController.add(context.coordinator, name: "checkboxToggle")
+        contentController.add(context.coordinator, name: "openLocalLink")
 
         // Page helpers: scroll sync, in-page find, and clean clipboard HTML
-        for script in [ScrollSync.previewScript, PreviewScripts.find, PreviewScripts.cleanCopy] {
+        for script in [ScrollSync.previewScript, PreviewScripts.find, PreviewScripts.cleanCopy, PreviewScripts.localLinks] {
             contentController.addUserScript(
                 WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
             )
@@ -158,6 +159,14 @@ struct PreviewView: NSViewRepresentable {
         // MARK: - WKScriptMessageHandler
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "openLocalLink" {
+                guard let string = message.body as? String, let url = URL(string: string), url.isFileURL else { return }
+                DispatchQueue.main.async { [weak self] in
+                    guard let webView = self?.webView else { return }
+                    self?.handleLocalFileLink(url, webView: webView)
+                }
+                return
+            }
             guard message.name == "checkboxToggle",
                   let body = message.body as? [String: Any],
                   let index = body["index"] as? Int,
@@ -236,37 +245,48 @@ struct PreviewView: NSViewRepresentable {
         }
 
         /// Handle clicks on local file links
-        /// Open a `file:` link like Obsidian: markdown in QuillSwift, folders in
-        /// Finder, other files in their default app.
+        /// Open a `file:` link: markdown in QuillSwift, folders in Finder, other
+        /// files in their default app.
         ///
-        /// Everything goes through Launch Services, which grants the sandbox
-        /// access to the target. Checking the path ourselves first (the old
-        /// `fileExists` guard) fails in the sandbox for anything the user hasn't
-        /// opened, e.g. a folder on a NAS share, so those clicks did nothing.
+        /// QuillSwift is sandboxed, so it can only open paths the user has opened
+        /// or picked. Markdown links therefore go through History's bookmark when
+        /// there is one, then a direct open, then an Open panel at the file (one
+        /// click grants access). Anything else that the sandbox won't open is
+        /// shown in Finder instead, which always works.
         private func handleLocalFileLink(_ url: URL, webView: WKWebView) {
             let ext = url.pathExtension.lowercased()
             if ["md", "markdown", "mdown", "mkd", "mkdn"].contains(ext) {
-                NSWorkspace.shared.open(
-                    [url],
-                    withApplicationAt: Bundle.main.bundleURL,
-                    configuration: NSWorkspace.OpenConfiguration()
-                ) { _, error in
-                    if let error { Self.reportUnopenable(url, error: error) }
+                Task { @MainActor in
+                    if let entry = HistoryStore.shared.entries.first(where: { $0.path == url.path && $0.bookmark != nil }) {
+                        HistoryStore.shared.open(entry)
+                        return
+                    }
+                    NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+                        if error != nil {
+                            DispatchQueue.main.async { Self.askToOpen(url) }
+                        }
+                    }
                 }
             } else {
                 NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
-                    if let error { Self.reportUnopenable(url, error: error) }
+                    if error != nil {
+                        DispatchQueue.main.async { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                    }
                 }
             }
         }
 
-        private static func reportUnopenable(_ url: URL, error: Error) {
-            DispatchQueue.main.async {
-                let alert = NSAlert()
-                alert.messageText = "Couldn’t open “\(url.lastPathComponent)”."
-                alert.informativeText = "\(url.path)\n\n\(error.localizedDescription)"
-                alert.runModal()
-            }
+        /// Ask the user to confirm a markdown file the sandbox can't open yet.
+        private static func askToOpen(_ url: URL) {
+            let panel = NSOpenPanel()
+            panel.directoryURL = url.deletingLastPathComponent()
+            panel.message = "Select “\(url.lastPathComponent)” and click Open to let QuillSwift open it."
+            panel.prompt = "Open"
+            panel.canChooseFiles = true
+            panel.canChooseDirectories = false
+            panel.allowsMultipleSelection = false
+            guard panel.runModal() == .OK, let chosen = panel.url else { return }
+            NSDocumentController.shared.openDocument(withContentsOf: chosen, display: true) { _, _, _ in }
         }
     }
 }

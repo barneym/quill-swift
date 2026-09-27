@@ -279,6 +279,24 @@ enum PreviewScripts {
     })();
     """#
 
+    /// Local (`file:`) link clicks are handed to the app. WebKit silently drops
+    /// navigation from this string-loaded page to file URLs outside its base
+    /// folder, so without this the click never reaches the navigation delegate.
+    /// Same-page `#fragment` links keep their normal behavior.
+    static let localLinks = #"""
+    (function() {
+        document.addEventListener('click', function(event) {
+            if (event.defaultPrevented || event.button !== 0) { return; }
+            var link = event.target.closest ? event.target.closest('a[href]') : null;
+            if (!link) { return; }
+            var href = link.getAttribute('href') || '';
+            if (href.charAt(0) === '#' || link.protocol !== 'file:') { return; }
+            event.preventDefault();
+            window.webkit.messageHandlers.openLocalLink.postMessage(link.href);
+        }, true);
+    })();
+    """#
+
     /// Copy handler: replaces WebKit's default clipboard HTML (which inlines
     /// every computed style) with plain structural HTML, so pasting into
     /// Google Docs and similar editors carries only markdown-level formatting.
