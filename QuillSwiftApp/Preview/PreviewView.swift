@@ -129,7 +129,11 @@ struct PreviewView: NSViewRepresentable {
 
         // Store the new HTML and reload
         context.coordinator.lastLoadedHTML = fullHTML
-        webView.loadHTMLString(fullHTML, baseURL: baseURL)
+        context.coordinator.load(fullHTML, baseURL: baseURL, into: webView)
+    }
+
+    static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
+        coordinator.removePageFile()
     }
 
     func makeCoordinator() -> Coordinator {
@@ -146,6 +150,39 @@ struct PreviewView: NSViewRepresentable {
 
         /// Last loaded HTML to detect changes
         var lastLoadedHTML: String?
+
+        /// Temporary file the page is loaded from (see `load`)
+        private lazy var pageFileURL: URL = {
+            let folder = FileManager.default.temporaryDirectory
+                .appendingPathComponent("QuillSwiftPreview", isDirectory: true)
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            return folder.appendingPathComponent("\(UUID().uuidString).html")
+        }()
+
+        /// Load the page from a file so it can read local images.
+        ///
+        /// WebKit gives a page loaded with `loadHTMLString` no file access at
+        /// all, whatever its base URL, so images stored beside the document
+        /// never loaded. A file load with read access works; a `<base>` element
+        /// keeps relative image paths and links resolving against the
+        /// document's folder.
+        func load(_ html: String, baseURL: URL?, into webView: WKWebView) {
+            var page = html
+            if let baseURL, let head = page.range(of: "<head>") {
+                let href = baseURL.absoluteString.replacingOccurrences(of: "\"", with: "%22")
+                page.insert(contentsOf: "\n<base href=\"\(href)\">", at: head.upperBound)
+            }
+            do {
+                try page.write(to: pageFileURL, atomically: true, encoding: .utf8)
+                webView.loadFileURL(pageFileURL, allowingReadAccessTo: URL(fileURLWithPath: "/"))
+            } catch {
+                webView.loadHTMLString(html, baseURL: baseURL)
+            }
+        }
+
+        func removePageFile() {
+            try? FileManager.default.removeItem(at: pageFileURL)
+        }
 
         /// Pending scroll position to restore after load
         var pendingScrollOffset: CGFloat?
@@ -226,6 +263,12 @@ struct PreviewView: NSViewRepresentable {
                 decisionHandler(.cancel)
 
             case "file":
+                // Same-page #fragment links stay in the preview
+                if let current = webView.url, url.fragment != nil,
+                   url.absoluteString.components(separatedBy: "#")[0] == current.absoluteString.components(separatedBy: "#")[0] {
+                    decisionHandler(.allow)
+                    return
+                }
                 // Handle local file links
                 handleLocalFileLink(url, webView: webView)
                 decisionHandler(.cancel)
@@ -245,48 +288,39 @@ struct PreviewView: NSViewRepresentable {
         }
 
         /// Handle clicks on local file links
-        /// Open a `file:` link: markdown in QuillSwift, folders in Finder, other
-        /// files in their default app.
-        ///
-        /// QuillSwift is sandboxed, so it can only open paths the user has opened
-        /// or picked. Markdown links therefore go through History's bookmark when
-        /// there is one, then a direct open, then an Open panel at the file (one
-        /// click grants access). Anything else that the sandbox won't open is
-        /// shown in Finder instead, which always works.
+        /// Open a `file:` link like Obsidian: markdown in QuillSwift, folders in
+        /// Finder, other files in their default app. If a file can't be opened
+        /// (missing, no default app), it is revealed in Finder when it exists,
+        /// otherwise an alert explains why.
         private func handleLocalFileLink(_ url: URL, webView: WKWebView) {
             let ext = url.pathExtension.lowercased()
             if ["md", "markdown", "mdown", "mkd", "mkdn"].contains(ext) {
-                Task { @MainActor in
-                    if let entry = HistoryStore.shared.entries.first(where: { $0.path == url.path && $0.bookmark != nil }) {
-                        HistoryStore.shared.open(entry)
-                        return
-                    }
-                    NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
-                        if error != nil {
-                            DispatchQueue.main.async { Self.askToOpen(url) }
-                        }
+                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+                    if let error {
+                        DispatchQueue.main.async { Self.reportUnopenable(url, error: error) }
                     }
                 }
             } else {
                 NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
-                    if error != nil {
-                        DispatchQueue.main.async { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                    guard let error else { return }
+                    DispatchQueue.main.async {
+                        if FileManager.default.fileExists(atPath: url.path) {
+                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        } else {
+                            Self.reportUnopenable(url, error: error)
+                        }
                     }
                 }
             }
         }
 
-        /// Ask the user to confirm a markdown file the sandbox can't open yet.
-        private static func askToOpen(_ url: URL) {
-            let panel = NSOpenPanel()
-            panel.directoryURL = url.deletingLastPathComponent()
-            panel.message = "Select “\(url.lastPathComponent)” and click Open to let QuillSwift open it."
-            panel.prompt = "Open"
-            panel.canChooseFiles = true
-            panel.canChooseDirectories = false
-            panel.allowsMultipleSelection = false
-            guard panel.runModal() == .OK, let chosen = panel.url else { return }
-            NSDocumentController.shared.openDocument(withContentsOf: chosen, display: true) { _, _, _ in }
+        private static func reportUnopenable(_ url: URL, error: Error) {
+            let alert = NSAlert()
+            alert.messageText = "Couldn’t open “\(url.lastPathComponent)”."
+            alert.informativeText = FileManager.default.fileExists(atPath: url.path)
+                ? "\(url.path)\n\n\(error.localizedDescription)"
+                : "No file exists at \(url.path). (If it is on a network share, check that the share is mounted.)"
+            alert.runModal()
         }
     }
 }

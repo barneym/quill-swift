@@ -555,7 +555,8 @@ enum PreviewSecurity {
             "frame-src 'none'",
             "object-src 'none'",
             "form-action 'none'",
-            "base-uri 'none'"
+            // The app sets <base> to the document's folder (sanitizer strips any in content)
+            "base-uri file:"
         ].joined(separator: "; ")
         return "<meta http-equiv=\"Content-Security-Policy\" content=\"\(policy)\">"
     }
