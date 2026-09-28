@@ -493,6 +493,7 @@ private func mermaidScriptContent(isDark: Bool) -> String {
             startOnLoad: false,
             securityLevel: 'strict',
             theme: \(isDark ? "'dark'" : "'default'"),
+            themeVariables: \(isDark ? mermaidDarkThemeVariables : mermaidLightThemeVariables),
             maxTextSize: 50000,
             flowchart: { useMaxWidth: true },
             sequence: { useMaxWidth: true }
@@ -672,3 +673,41 @@ enum PreviewSecurity {
         return "<meta http-equiv=\"Content-Security-Policy\" content=\"\(policy)\">"
     }
 }
+
+// MARK: - Mermaid Palettes
+
+/// Series colors (pie slices, git branches, journey/timeline sections).
+/// Mermaid's `dark` theme derives them by darkening its primary color, leaving
+/// near-black slices on a dark page, and the `default` theme mixes near-white
+/// and neon fills. Both modes use Catppuccin Mocha pastels (the palette of the
+/// user's Obsidian theme and QuillSwift's checkboxes) with dark labels.
+private let mermaidSeries = ["#f38ba8", "#fab387", "#f9e2af", "#a6e3a1", "#94e2d5", "#89dceb",
+                                 "#89b4fa", "#cba6f7", "#f5c2e7", "#b4befe", "#eba0ac", "#f2cdcd"]
+
+private let mermaidFont = "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif"
+
+/// Theme variables for the series palette; `ink` is the label/title color
+private func mermaidThemeVariables(isDark: Bool) -> String {
+    let labelOnFill = "#1e1e2e"
+    let ink = isDark ? "#cdd6f4" : "#1f2328"
+    var vars: [String] = ["fontFamily: \"\(mermaidFont)\""]
+    for (i, color) in mermaidSeries.enumerated() {
+        vars.append("pie\(i + 1): '\(color)'")
+        vars.append("cScale\(i): '\(color)'")
+        vars.append("cScaleLabel\(i): '\(labelOnFill)'")
+        if i < 8 {
+            vars.append("git\(i): '\(color)'")
+            vars.append("gitBranchLabel\(i): '\(labelOnFill)'")
+        }
+    }
+    vars += [
+        "pieSectionTextColor: '\(labelOnFill)'",
+        "pieStrokeColor: '\(isDark ? "#11111b" : "#ffffff")'", "pieStrokeWidth: '1px'",
+        "pieOuterStrokeColor: '\(isDark ? "#45475a" : "#d0d7de")'",
+        "pieTitleTextColor: '\(ink)'", "pieLegendTextColor: '\(ink)'", "pieOpacity: '1'"
+    ]
+    return "{ " + vars.joined(separator: ", ") + " }"
+}
+
+private let mermaidDarkThemeVariables = mermaidThemeVariables(isDark: true)
+private let mermaidLightThemeVariables = mermaidThemeVariables(isDark: false)
