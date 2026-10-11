@@ -111,3 +111,10 @@ codecov.yml
 *.zip
 *.tar.gz
 *.rar
+
+# git-hygiene baseline 2026-10-10 (source: Obsidian vault .system/templates/gitignore-baseline)
+.remember/
+**/.claude-plugin/types/
+.claude/settings.local.json
+.env.*
+!.env.example
